@@ -1,0 +1,11 @@
+# Render Blueprint — деплой одной кнопкой:
+# https://dashboard.render.com → New + → Blueprint → выберите репозиторий,
+# и Render сам подхватит этот файл.
+services:
+  - type: web
+    name: discipline-tracker
+    runtime: node
+    plan: free
+    buildCommand: npm install --no-audit --no-fund
+    startCommand: npm start
+    healthCheckPath: /healthz

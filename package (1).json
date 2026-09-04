@@ -1,0 +1,13 @@
+{
+  "name": "discipline-tracker",
+  "version": "5.7.1",
+  "private": true,
+  "description": "DISCIPLINE.TRACKER v5.7 — одностраничное приложение + Node-сервер без зависимостей, готов к деплою на Render",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
