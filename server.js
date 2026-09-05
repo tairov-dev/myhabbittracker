@@ -57,7 +57,7 @@ const crypto = require('crypto');
 const PORT     = process.env.PORT || 3000;
 const ROOT     = __dirname;
 const API_KEY  = process.env.RENDER_API_KEY || ''; // необязательная защита
-const VERSION  = '3.1.6';
+const VERSION  = '3.1.7';
 
 const XBOX_CLIENT_ID     = process.env.XBOX_CLIENT_ID     || '45ff85a2-0874-43d7-b896-cf1b3af2e593';
 /* v3.1.1: секрет «myhabbittrackerxbox» (ID 8b26845b-3e38-4492-ba4d-8c4779569247) —
@@ -255,17 +255,20 @@ async function xstsToken(userToken) {
   return { token: r.json.Token, uhs: (xui && xui.uhs) || '', xid: (xui && xui.xid) || '' };
 }
 
-async function xblGet(t, urlStr, contractVersion) {
+async function xblGet(t, urlStr, contractVersion, authId) {
+  /* v3.1.7: authId — какой идентификатор подставить в XBL3.0 x=<authId>;<token>.
+     У новых токенов uhs — случайное 20-значное число (НЕ xuid), и часть
+     сервисов Xbox (titlehub/achievements) с ним не работает — тогда пробуем xuid. */
   const r = await httpsRequest(urlStr, {
     headers: {
-      'Authorization': 'XBL3.0 x=' + t.uhs + ';' + t.xstsToken,
+      'Authorization': 'XBL3.0 x=' + (authId || t.uhs) + ';' + t.xstsToken,
       'x-xbl-contract-version': contractVersion || '2',
       'Accept': 'application/json',
       'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
       'User-Agent': 'DisciplineTracker/6.0'
     }
   });
-  if (r.status === 401 || r.status === 403) {
+  if ((r.status === 401 || r.status === 403) && !authId) {
     t.xstsToken = ''; t.xstsExpiresAt = 0; writeXboxTokens(t);
     throw new Error('Xbox Live отклонил токен (HTTP ' + r.status + ') — выполните повторный вход через Xbox');
   }
@@ -644,25 +647,20 @@ async function handleApi(req, res, urlPath, query) {
       const t = await xboxEnsureTokens(false);
       const xuid = xboxXuid(t);
       const probes = [
-        ['profile me',                 'https://profile.xboxlive.com/users/me/profile/settings?settings=Gamertag', '2'],
-        ['profile xuid',               'https://profile.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/profile/settings?settings=Gamertag', '2'],
-        ['profile uhs',                'https://profile.xboxlive.com/users/xuid(' + encodeURIComponent(String(t.uhs || '')) + ')/profile/settings?settings=Gamertag', '2'],
-        ['th uhs deco',                'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(String(t.uhs || '')) + ')/titles/titlehub/decoration/detail?max_items=25', '2'],
-        ['th uhs legacy',              'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(String(t.uhs || '')) + ')/titles/detail?maxItems=25&decoration=All', '2'],
-        ['th me deco max_items',       'https://titlehub.xboxlive.com/users/me/titles/titlehub/decoration/detail?max_items=25', '2'],
-        ['th me deco maxItems',        'https://titlehub.xboxlive.com/users/me/titles/titlehub/decoration/detail?maxItems=25', '2'],
-        ['th me deco cv1',             'https://titlehub.xboxlive.com/users/me/titles/titlehub/decoration/detail?max_items=25', '1'],
-        ['th me legacy',               'https://titlehub.xboxlive.com/users/me/titles/detail?maxItems=25&decoration=All', '2'],
-        ['th xuid deco max_items',     'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/titlehub/decoration/detail?max_items=25', '2'],
-        ['th xuid legacy',             'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/detail?maxItems=25&decoration=All', '2'],
-        ['ach me',                     'https://achievements.xboxlive.com/users/me/achievements?maxItems=5', '2']
+        ['profile me',                 'https://profile.xboxlive.com/users/me/profile/settings?settings=Gamertag', '2', ''],
+        ['th uhs auth xuid deco',      'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/titlehub/decoration/detail?max_items=25', '2', ''],
+        ['th xid auth xuid deco',      'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/titlehub/decoration/detail?max_items=25', '2', 'xid'],
+        ['th xid auth me deco',        'https://titlehub.xboxlive.com/users/me/titles/titlehub/decoration/detail?max_items=25', '2', 'xid'],
+        ['ach uhs auth xuid',          'https://achievements.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/achievements?maxItems=5', '2', ''],
+        ['ach xid auth xuid',          'https://achievements.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/achievements?maxItems=5', '2', 'xid']
       ];
       const out = [];
-      for (const [label, url, cv] of probes) {
+      for (const [label, url, cv, authMode] of probes) {
         try {
+          const authId = authMode === 'xid' ? (t.xuid || t.uhs) : '';
           const r = await httpsRequest(url, {
             headers: {
-              'Authorization': 'XBL3.0 x=' + t.uhs + ';' + t.xstsToken,
+              'Authorization': 'XBL3.0 x=' + (authId || t.uhs) + ';' + t.xstsToken,
               'x-xbl-contract-version': cv,
               'Accept': 'application/json',
               'Accept-Language': 'en-US,en;q=0.9',
@@ -692,25 +690,23 @@ async function handleApi(req, res, urlPath, query) {
          (2) users/xuid + decoration, (3) легаси /titles/detail */
       const xuid = xboxXuid(t);
       if (!xuid) throw new Error('Не определён XUID — повторите вход');
-      const uhs = String(t.uhs || '');
-      /* v3.1.6: у аккаунта Microsoft ДВА формата xuid — новый (2535…) и старый
-         (2814…, он же uhs в XSTS-токене). titlehub сверяет моникер с токеном,
-         поэтому пробуем оба формата + me, сначала на актуальном пути decoration */
+      /* v3.1.7: перебираем комбинации authId (uhs/xuid) × моникер (xuid/me) × путь —
+         рабочая комбинация у каждого аккаунта своя */
+      const enc = encodeURIComponent;
       const mk = (id, path) => 'https://titlehub.xboxlive.com/users/' + id + '/' + path;
-      const thUrls = [];
-      if (uhs) {
-        thUrls.push(mk('xuid(' + encodeURIComponent(uhs) + ')', 'titles/titlehub/decoration/detail?max_items=200'));
-        thUrls.push(mk('xuid(' + encodeURIComponent(uhs) + ')', 'titles/detail?maxItems=1000&decoration=All'));
+      const authIds = [t.uhs, t.xuid].filter(Boolean);
+      const combos = [];
+      for (const a of authIds) {
+        combos.push({ auth: a, url: mk('xuid(' + enc(xuid) + ')', 'titles/titlehub/decoration/detail?max_items=200') });
+        combos.push({ auth: a, url: mk('me', 'titles/titlehub/decoration/detail?max_items=200') });
+        combos.push({ auth: a, url: mk('xuid(' + enc(xuid) + ')', 'titles/detail?maxItems=1000&decoration=All') });
       }
-      thUrls.push(mk('xuid(' + encodeURIComponent(xuid) + ')', 'titles/titlehub/decoration/detail?max_items=200'));
-      thUrls.push(mk('me', 'titles/titlehub/decoration/detail?max_items=200'));
-      thUrls.push(mk('xuid(' + encodeURIComponent(xuid) + ')', 'titles/detail?maxItems=1000&decoration=All'));
       let d = null, lastErr = null;
-      for (const thUrl of thUrls) {
-        try { d = await xblGet(t, thUrl); break; }
+      for (const c of combos) {
+        try { d = await xblGet(t, c.url, '2', c.auth); if (d) break; }
         catch (thE) {
           lastErr = thE;
-          if (!/HTTP 400|HTTP 404/.test(String(thE.message || ''))) throw thE;
+          if (!/HTTP 400|HTTP 404|HTTP 403/.test(String(thE.message || ''))) throw thE;
         }
       }
       if (!d) throw (lastErr || new Error('titlehub недоступен'));
@@ -736,8 +732,23 @@ async function handleApi(req, res, urlPath, query) {
     if (!titleId) { sendJson(res, 400, { error: 'Нужен параметр titleId' }); return; }
     try {
       const t = await xboxEnsureTokens(false);
-      /* v3.1.4: users/me — надёжнее, чем xuid-моникер (свой аккаунт) */
-      const d = await xblGet(t, 'https://achievements.xboxlive.com/users/me/achievements?titleId=' + encodeURIComponent(titleId) + '&maxItems=200');
+      /* v3.1.7: перебор authId × моникер для achievements */
+      const enc2 = encodeURIComponent;
+      const xuidA = xboxXuid(t);
+      const aUrls = [];
+      for (const a of [t.uhs, t.xuid].filter(Boolean)) {
+        aUrls.push({ auth: a, url: 'https://achievements.xboxlive.com/users/xuid(' + enc2(xuidA) + ')/achievements?titleId=' + enc2(titleId) + '&maxItems=200' });
+        aUrls.push({ auth: a, url: 'https://achievements.xboxlive.com/users/me/achievements?titleId=' + enc2(titleId) + '&maxItems=200' });
+      }
+      let d = null, lastAErr = null;
+      for (const c of aUrls) {
+        try { d = await xblGet(t, c.url, '2', c.auth); if (d) break; }
+        catch (aE) {
+          lastAErr = aE;
+          if (!/HTTP 400|HTTP 404|HTTP 403/.test(String(aE.message || ''))) throw aE;
+        }
+      }
+      if (!d) throw (lastAErr || new Error('achievements недоступен'));
       const list = (d.achievements || []).map(a => {
         const unlocked = !!(a.progression && a.progression.progressState === 'Achieved');
         const tu = (a.progression && a.progression.timeUnlocked) ? Math.floor(new Date(a.progression.timeUnlocked).getTime() / 1000) : 0;
