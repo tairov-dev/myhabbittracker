@@ -1097,7 +1097,7 @@ a:hover{text-decoration:underline}
   <div class="app-content-wrap">
   <header class="header">
     <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()" title="Меню" aria-label="Toggle sidebar"><span></span><span></span><span></span></button>
-    <div class="logo"><span class="logo-dot"></span>DISCIPLINE.TRACKER <span class="mono" style="font-size:9px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:1px 5px;vertical-align:middle">v5.9</span></div>
+    <div class="logo"><span class="logo-dot"></span>DISCIPLINE.TRACKER <span class="mono" style="font-size:9px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:1px 5px;vertical-align:middle">v6.0.1</span></div>
     <div class="header-stats">
       <span class="stat-lvl">LVL <span id="user-lvl">1</span></span>
       <div class="xp-bar"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
@@ -6230,7 +6230,7 @@ function(){
       </div>
       <div class="text-xs text-muted mt-2" style="display:flex;justify-content:space-between">
         <span>${SVG('gamepad',11)} ${escapeHtml(g.platform||'')}</span>
-        ${g.addedFrom==='preset'?'<span class="tag" style="color:#FFD600;border-color:#FFD600">PRESET</span>':(g.achievements&&g.achievements.length?'<span class="tag accent">'+g.achievements.length+' ach</span>':'')}
+        ${g.addedFrom==='preset'?'<span class="tag" style="color:#FFD600;border-color:#FFD600">PRESET</span>':''}${typeof achSummaryBadge==='function' ? achSummaryBadge(g) : ''}
       </div>
     </div>
   </div>`).join('');
@@ -7232,7 +7232,7 @@ function(){
     </div>
     <div class="card server-sync-section">
       <div class="section-title"><span class="dot"></span>🖥️ Сервер синхронизации игр</div>
-      <p class="text-sm text-muted mb-3">Настройте свой сервер на Render.com для надёжной синхронизации с Steam, Xbox и другими площадками без CORS-проблем. Сервер будет проксировать запросы к официальным API платформ.</p>
+      <p class="text-sm text-muted mb-3">Настройте свой сервер на Render.com для надёжной синхронизации с Steam, Xbox и другими площадками без CORS-проблем. Сервер будет проксировать запросы к официальным API платформ. Важно: на сервере должен стоять <b>server.js v3.1.0+</b> — в старых версиях нет CORS-заголовков, и браузер выдавал «Failed to fetch». После обновления файла на Render нажмите Manual Deploy.</p>
       <div class="form-row">
         <label class="form-label">URL сервера Render</label>
         <input type="url" class="form-input" id="renderServerUrl" placeholder="https://your-tracker-server.onrender.com" value="${escapeHtml(Store.get('render_server_url', ''))}">
@@ -7263,8 +7263,8 @@ function(){
       </div>
     </div>
     <div class="card">
-      <div class="section-title"><span class="dot"></span>⚡ Новое в v5.9</div>
-      <p class="text-sm text-muted mb-3">ПКМ — отметить квадрат привычки, двойной клик — снять · серии ×4 · настройки графики для слабых устройств · синхронизация GFN Premium и Xbox Game Pass PC.</p>
+      <div class="section-title"><span class="dot"></span>⚡ Новое в v6.0</div>
+      <p class="text-sm text-muted mb-3">Вход через Xbox по официальному Microsoft OAuth — игры аккаунта (Game Pass PC) добавляются автоматически · достижения Steam и Xbox к каждой игре: иконка, название, описание и мини-гайд из гайдов Steam.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-sm btn-primary" onclick="startPomodoro()">${SVG('pomodoro-timer' in ICONS_LIB ? 'pomodoro-timer' : 'clock',12)} Запустить Pomodoro</button>
         <button class="btn btn-sm" onclick="openPomodoroSettings()">${SVG('settings',12)} Настройки Pomodoro</button>
@@ -9412,37 +9412,114 @@ async function syncSteam(){
 // The browser cannot call Steam/Xbox/etc. APIs directly due to CORS. The user can deploy a
 // small Node server (server-sync.js) on Render.com that proxies these requests. The UI
 // here talks to that server, which then forwards the request to the official platform API.
+// ============================================================
+// v6.0.1 — устойчивые запросы к Render-серверу (фикс «Failed to fetch»)
+// ============================================================
+// Причины прежней ошибки:
+//  1) на сервере не было CORS-заголовков и обработки OPTIONS-preflight —
+//     браузер молча блокировал ответ → TypeError: Failed to fetch;
+//  2) testRenderServer отправлял Content-Type: application/json на GET —
+//     это вызывало preflight там, где он не нужен;
+//  3) X-API-Key отправлялся даже пустым (тоже вызывает preflight);
+//  4) не было таймаутов, фолбэка через прокси и диагностики.
+const SRV_NET_HINT = 'Не удалось соединиться с сервером. Причины: 1) на Render ещё старый server.js без CORS — перезалейте server.js v3.1.0+ из архива render-deploy и нажмите Manual Deploy; 2) free-инстанс Render мог заснуть — подождите ~1 минуту и повторите; 3) URL сервера неверный (нужен https://имя.onrender.com)';
+function fetchResp(url, opts){
+  const o = opts || {};
+  return new Promise((resolve, reject) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), o.timeoutMs || 20000);
+    fetch(url, { method: o.method || 'GET', headers: o.headers || {}, body: o.body, signal: ctrl.signal })
+      .then(r => { clearTimeout(timer); resolve(r); })
+      .catch(e => { clearTimeout(timer); reject(e); });
+  });
+}
+const SRV_PROXY_GETTERS = [
+  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  u => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u)
+];
+function normalizeServerUrl(u){
+  let s = (u || '').trim().replace(/\/+$/, '');
+  if (!s) return '';
+  if (!/^https?:\/\//i.test(s)){
+    s = (/^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(s) ? 'http://' : 'https://') + s;
+  }
+  return s.replace(/\/+$/, '');
+}
+async function serverFetchJson(pathName, opts){
+  const o = opts || {};
+  const base = normalizeServerUrl(achServerBase());
+  if (!base) throw new Error('Сервер синхронизации не задан — укажите его URL во вкладке «Настройки» или откройте трекер с самого сервера');
+  const url = base + pathName;
+  const hdrs = Object.assign({}, o.headers || {});
+  if (!hdrs['X-API-Key']) delete hdrs['X-API-Key']; // пустой ключ не отправляем (иначе preflight)
+  const isGet = (o.method || 'GET') === 'GET';
+  let resp = null;
+  try { resp = await fetchResp(url, { method: o.method || 'GET', headers: hdrs, body: o.body, timeoutMs: o.timeoutMs || 20000 }); } catch(e){}
+  if (!resp && isGet){ // сеть/CORS заблокировали прямой запрос — публичные прокси (только GET)
+    for (const pf of SRV_PROXY_GETTERS){
+      try { resp = await fetchResp(pf(url), { timeoutMs: 12000 }); console.warn('Сервер отвечает только через прокси — обновите server.js на Render до v3.1.0+'); break; } catch(e){}
+    }
+  }
+  if (!resp){ const err = new Error(SRV_NET_HINT); err.code = 'network'; throw err; }
+  let d = null; try { d = await resp.json(); } catch(e){}
+  if (!resp.ok || (d && d.error)) throw new Error((d && d.error) || ('HTTP ' + resp.status));
+  return d;
+}
 async function testRenderServer(){
   const urlInput = document.getElementById('renderServerUrl');
   if (!urlInput) return;
-  const url = (urlInput.value || '').trim();
-  if (!url){ toast('Введите URL сервера','error'); return; }
-  const baseUrl = url.replace(/\/$/, '');
+  const raw = (urlInput.value || '').trim();
+  if (!raw){ toast('Введите URL сервера','error'); return; }
+  const baseUrl = normalizeServerUrl(raw);
+  urlInput.value = baseUrl; // показываем нормализованный URL (https:// добавлен при необходимости)
   const statusEl = document.getElementById('serverStatus');
   if (statusEl){
     statusEl.innerHTML = '<span class="status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--warning);box-shadow:0 0 6px var(--warning)"></span><span class="text-sm text-muted">Проверка...</span>';
   }
   toast('Проверка соединения с сервером...','info');
+  // Free-инстанс Render засыпает без трафика: первый запрос может идти до минуты
+  const wakeTimer = setTimeout(() => {
+    if (statusEl) statusEl.innerHTML = '<span class="status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--warning);box-shadow:0 0 6px var(--warning)"></span><span class="text-sm text-muted">Ожидание пробуждения free-инстанса Render (до 60 с)...</span>';
+  }, 6000);
   try {
-    const resp = await fetch(baseUrl + '/api/health', { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+    let resp = null, via = 'direct';
+    try {
+      resp = await fetchResp(baseUrl + '/api/health', { timeoutMs: 60000 });
+    } catch(e){
+      for (const pf of SRV_PROXY_GETTERS){
+        try { resp = await fetchResp(pf(baseUrl + '/api/health'), { timeoutMs: 12000 }); via = 'proxy'; break; } catch(e2){}
+      }
+      if (!resp){
+        clearTimeout(wakeTimer);
+        if (statusEl){
+          statusEl.innerHTML = '<span class="status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--danger);box-shadow:0 0 6px rgba(255,82,82,0.5)"></span><span class="text-sm" style="color:var(--danger)">Недоступно</span>';
+        }
+        toast(SRV_NET_HINT, 'error');
+        return;
+      }
+    }
+    clearTimeout(wakeTimer);
     if (resp.ok){
-      let data = {};
-      try { data = await resp.json(); } catch(e){}
+      let data = {}; try { data = await resp.json(); } catch(e){}
+      const proxyNote = (via === 'proxy') ? ' · через прокси — перезалейте server.js v3.1.0+ на Render (нет CORS)' : '';
       if (statusEl){
-        statusEl.innerHTML = '<span class="status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--success);box-shadow:0 0 6px rgba(0,230,118,0.5)"></span><span class="text-sm" style="color:var(--success)">Подключено ✓ (v' + escapeHtml(String(data.version || '1.0')) + ')</span>';
+        statusEl.innerHTML = '<span class="status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--success);box-shadow:0 0 6px rgba(0,230,118,0.5)"></span><span class="text-sm" style="color:var(--success)">Подключено ✓ (v' + escapeHtml(String(data.version || '1.0')) + proxyNote + ')</span>';
       }
       toast('Сервер доступен','success');
     } else {
       if (statusEl){
         statusEl.innerHTML = '<span class="status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--warning);box-shadow:0 0 6px var(--warning)"></span><span class="text-sm" style="color:var(--warning)">HTTP ' + resp.status + '</span>';
       }
-      toast('Сервер ответил с ошибкой ' + resp.status, 'warning');
+      const hint = (resp.status === 502 || resp.status === 503) ? ' — инстанс Render просыпается или упал, повторите через минуту' : '';
+      toast('Сервер ответил с ошибкой ' + resp.status + hint, 'warning');
     }
   } catch(e){
+    clearTimeout(wakeTimer);
     if (statusEl){
       statusEl.innerHTML = '<span class="status-dot" style="width:10px;height:10px;border-radius:50%;background:var(--danger);box-shadow:0 0 6px rgba(255,82,82,0.5)"></span><span class="text-sm" style="color:var(--danger)">Недоступно</span>';
     }
-    toast('Не удалось подключиться к серверу: ' + (e.message || 'network error'), 'error');
+    toast(SRV_NET_HINT, 'error');
   }
 }
 
@@ -9450,15 +9527,16 @@ function saveRenderServer(){
   const urlInput = document.getElementById('renderServerUrl');
   const keyInput = document.getElementById('renderServerKey');
   if (!urlInput) return;
-  const url = (urlInput.value || '').trim().replace(/\/$/, '');
+  const url = normalizeServerUrl(urlInput.value);
   const key = (keyInput ? keyInput.value : '').trim();
+  urlInput.value = url;
   Store.set('render_server_url', url);
   Store.set('render_server_key', key);
   toast('Настройки сервера сохранены','success');
 }
 
 async function syncViaServer(platform){
-  const baseUrl = Store.get('render_server_url', '');
+  const baseUrl = normalizeServerUrl(Store.get('render_server_url', ''));
   if (!baseUrl){ toast('Сначала настройте URL сервера в Настройках','error'); return; }
   const apiKey = Store.get('render_server_key', '');
   const steamCfg = Store.get('api_steam', {}) || {};
@@ -9467,9 +9545,10 @@ async function syncViaServer(platform){
   const xboxCfg = Store.get('api_xbox', {}) || {};
   toast('Синхронизация ' + platform + ' через сервер...','info');
   try {
-    const resp = await fetch(baseUrl + '/api/sync/' + platform, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+    const hdrs = { 'Content-Type': 'application/json' };
+    if (apiKey) hdrs['X-API-Key'] = apiKey;
+    const resp = await fetchResp(baseUrl + '/api/sync/' + platform, {
+      method: 'POST', timeoutMs: 30000, headers: hdrs,
       body: JSON.stringify({
         steam_key: steamKey,
         steam_id: steamId,
@@ -9494,7 +9573,9 @@ async function syncViaServer(platform){
       toast('Ошибка синхронизации: ' + errText.slice(0, 120), 'error');
     }
   } catch(e){
-    toast('Ошибка соединения с сервером: ' + (e.message || 'network error'), 'error');
+    if (e && e.name === 'AbortError') toast('Таймаут: сервер не ответил за 30 с (возможно, free-инстанс Render просыпается — повторите)', 'error');
+    else if (e && e.code === 'network') toast(SRV_NET_HINT, 'error');
+    else toast('Ошибка соединения с сервером: ' + ((e && e.message) || 'network error'), 'error');
   }
 }
 
@@ -9522,6 +9603,7 @@ function mergeGamesIntoLibrary(games){
       platform: g.platform || 'Steam',
       coverUrl: g.coverUrl || g.header || '',
       appid: g.appid || g.appId || 0,
+      titleId: g.titleId || 0,
       hours: g.hours || g.playtime_forever ? Math.round((g.playtime_forever || g.hours || 0) / 60) : 0,
       lastPlayed: '',
       status: 'planned',
@@ -9679,11 +9761,11 @@ function importSteamManual(){
   refreshTab('games');
 }
 function xboxInfo(){
-  openModal(`<div class="modal-header"><div class="modal-title">${SVG('gamepad',14)} Xbox Live</div><button class="modal-close" onclick="closeModal()">${SVG('x',14)}</button></div>
+  openModal(`<div class="modal-header"><div class="modal-title">${SVG('gamepad',14)} Xbox — вход через аккаунт Microsoft</div><button class="modal-close" onclick="closeModal()">${SVG('x',14)}</button></div>
   <div class="modal-body">
-    <div class="text-sm mb-3">Xbox Live требует OAuth-редирект. Client ID:</div>
-    <div class="mono" style="background:var(--bg-input);padding:12px;border:1px solid var(--border);clip-path:var(--clip-cut-sm);font-size:12px;word-break:break-all">6a8158ee-7929-474b-9fbe-8e4dacadaed9</div>
-    <div class="text-xs text-muted mt-3">Для полноценной синхронизации необходимо настроить OAuth flow с redirect URI на вашем домене.</div>
+    <div class="text-sm mb-3">Вход выполняется по официальному Microsoft OAuth (scope XboxLive.signin) через сервер синхронизации: сервер получает XBL/XSTS-токены и подтягивает игры и достижения Xbox.</div>
+    <div class="mono" style="background:var(--bg-input);padding:12px;border:1px solid var(--border);clip-path:var(--clip-cut-sm);font-size:12px;word-break:break-all">Application (client) ID: 45ff85a2-0874-43d7-b896-cf1b3af2e593<br>Secret: xboxgamepchabbittracekr (ID 852b73eb-cff2-4959-8bea-fa8b25ade4d4)<br>Redirect URI: https://ВАШ-СЕРВЕР/api/xbox/callback</div>
+    <div class="text-xs text-muted mt-3">В Azure Portal → Приложение → Authentication добавьте Redirect URI типа Web: <b>https://ваш-сервис.onrender.com/api/xbox/callback</b> (и локально http://localhost:3000/api/xbox/callback). После этого кнопка «Войти через Xbox» во вкладке «Игры» полностью рабочая.</div>
     <button class="btn btn-primary mt-3" onclick="closeModal()">Понятно</button>
   </div>`);
 }
@@ -9699,11 +9781,15 @@ function openGameForm(id){
       <div class="form-row"><label class="form-label">Часов наиграно</label><input type="number" class="form-input" id="f-hours" value="${g?.hours||0}"></div>
     </div>
     <div class="form-grid">
+      <div class="form-row"><label class="form-label">Steam appid (для достижений)</label><input type="number" class="form-input" id="f-appid" value="${g?.appid||''}" placeholder="Например: 1551360"></div>
+      <div class="form-row"><label class="form-label">Xbox titleId (для достижений)</label><input class="form-input" id="f-titleid" value="${g?.titleId||''}" placeholder="Число из синхронизации Xbox"></div>
+    </div>
+    <div class="form-grid">
       <div class="form-row"><label class="form-label">Год (эпоха прохождения)</label><input type="number" class="form-input" id="f-year" value="${g?.year||''}" placeholder="Например: 2018" min="1990" max="2100"></div>
       <div class="form-row"><label class="form-label">Последний запуск</label><input type="date" class="form-input" id="f-lastplayed" value="${g?.lastPlayed||''}"></div>
     </div>`;
   formModal(SVG('gamepad',14)+' '+(id?'Изменить':'Добавить игру'), body, () => {
-    const ng = { id: id||uid(), title: document.getElementById('f-title').value.trim(), platform: document.getElementById('f-platform').value, status: document.getElementById('f-status').value, coverUrl: document.getElementById('f-cover').value.trim(), hours: parseInt(document.getElementById('f-hours').value)||0, year: parseInt(document.getElementById('f-year').value)||null, lastPlayed: document.getElementById('f-lastplayed').value || g?.lastPlayed || '', achievements: g?.achievements||[] };
+    const ng = { id: id||uid(), title: document.getElementById('f-title').value.trim(), platform: document.getElementById('f-platform').value, status: document.getElementById('f-status').value, coverUrl: document.getElementById('f-cover').value.trim(), hours: parseInt(document.getElementById('f-hours').value)||0, appid: parseInt((document.getElementById('f-appid')||{}).value)||g?.appid||0, titleId: String((document.getElementById('f-titleid')||{}).value||'').trim()||g?.titleId||0, year: parseInt(document.getElementById('f-year').value)||null, lastPlayed: document.getElementById('f-lastplayed').value || g?.lastPlayed || '', achievements: g?.achievements||[] };
     if(!ng.title) throw new Error('Введите название');
     const arr = Store.get('games',[]); if(id){const i=arr.findIndex(x=>x.id===id);arr[i]=ng;} else arr.unshift(ng);
     Store.set('games',arr); toast('Игра сохранена','success'); refreshTab('games');
@@ -12179,7 +12265,7 @@ function makeRichText(element, options){
 function getApiConfig(platform){
   const defaults = {
     steam:   { apiKey: 'DE297FC4E0305721FF3772595AD8A827', steamId: '76561199226918877', connected: false, nickname: '', profileId: '' },
-    xbox:    { clientId: '6a8158ee-7929-474b-9fbe-8e4dacadaed9', clientSecret: '90b0a83b-03e5-4cc6-8dbd-f3f14d6c6f94', refreshToken: 'Tx58Q~NHufe0A8gH7JNOyfu2KIytgImpfKOJNccy', connected: false },
+    xbox:    { clientId: '45ff85a2-0874-43d7-b896-cf1b3af2e593', clientSecret: 'Uyy8Q~cZWGg-yuTSgdDo5qI~ttCfIbfUSBIHhaJZ', refreshToken: '', connected: false, nickname: '', via: 'oauth' },
     epic:    { username: '', displayName: '', libraryJson: '', connected: false },
     gog:     { username: '', libraryJson: '', connected: false },
     battle:  { region: 'EU', accountName: '', connected: false },
@@ -13446,7 +13532,7 @@ function renderGamesChronology(games){
     + '</div>'
     + '</div>'
     + '</div>'
-    + '<div style="display:flex;justify-content:space-between;padding:10px 18px;border-top:1px solid rgba(255,255,255,0.06)" class="mono"><span style="font-size:10px;color:#6b7183">УЧТЕНО ИГР: ' + withHours.length + ' · ЧАСОВ: ' + Math.round(totalHours).toLocaleString('ru-RU') + '</span><span style="font-size:10px;color:#6b7183">DISCIPLINE.TRACKER v5.9 · ХРОНОДЕЛЕНИЕ</span></div>'
+    + '<div style="display:flex;justify-content:space-between;padding:10px 18px;border-top:1px solid rgba(255,255,255,0.06)" class="mono"><span style="font-size:10px;color:#6b7183">УЧТЕНО ИГР: ' + withHours.length + ' · ЧАСОВ: ' + Math.round(totalHours).toLocaleString('ru-RU') + '</span><span style="font-size:10px;color:#6b7183">DISCIPLINE.TRACKER v6.0 · ХРОНОДЕЛЕНИЕ</span></div>'
     + '</div>';
 }
 
@@ -13695,13 +13781,13 @@ async function refreshSteamLive(manual){
   if (manual) toast('Обновление данных Steam...', 'info');
   try {
     let payload = null;
-    const base = (Store.get('render_server_url', '') || '').trim().replace(/\/+$/, '');
+    const base = normalizeServerUrl(Store.get('render_server_url', '') || '');
     if (base){
       try {
         const hdrs = {};
         const skey = Store.get('render_server_key', '');
         if (skey) hdrs['X-API-Key'] = skey;
-        const r = await fetch(base + '/api/steam/live?key=' + encodeURIComponent(key) + '&steamid=' + encodeURIComponent(sid), { headers: hdrs });
+        const r = await fetchResp(base + '/api/steam/live?key=' + encodeURIComponent(key) + '&steamid=' + encodeURIComponent(sid), { headers: hdrs, timeoutMs: 25000 });
         if (r.ok) payload = await r.json();
         else console.warn('server live HTTP', r.status);
       } catch(e){ console.warn('server live failed → proxies', e); }
@@ -14500,10 +14586,13 @@ async function xboxSyncNow(){
   if (!key || !xuid){ toast('Нужны ключ OpenXBL (xbl.io) и XUID аккаунта', 'error'); return; }
   toast('Синхронизация Xbox Game Pass PC...', 'info');
   let titles = null, via = '';
-  const base = (Store.get('render_server_url', '') || '').replace(/\/+$/, '');
+  const base = normalizeServerUrl(Store.get('render_server_url', '') || '');
   if (base){ // путь 1: через Render-сервер (без CORS)
     try {
-      const r = await fetch(base + '/api/xbox/library?key=' + encodeURIComponent(key) + '&xuid=' + encodeURIComponent(xuid), { headers: { 'X-API-Key': Store.get('render_server_key', '') || '' } });
+      const hdrs = {};
+      const skey = Store.get('render_server_key', '');
+      if (skey) hdrs['X-API-Key'] = skey;
+      const r = await fetchResp(base + '/api/xbox/library?key=' + encodeURIComponent(key) + '&xuid=' + encodeURIComponent(xuid), { headers: hdrs, timeoutMs: 25000 });
       if (r.ok){ const d = await r.json(); titles = d.titles || d.games || null; via = 'сервер'; }
     } catch(e){}
   }
@@ -14527,6 +14616,7 @@ async function xboxSyncNow(){
 
 /* ---------- Req #4: панель синхронизации во вкладке «Игры» ---------- */
 function renderGamesSyncPanel(){
+  setTimeout(() => { if (typeof xboxRefreshStatusUI === 'function') xboxRefreshStatusUI().catch(() => {}); }, 120);
   const gfnCfg = getApiConfig('gfn');
   const games = Store.get('games', []);
   const cntBy = p => games.filter(g => (g.platform || '') === p).length;
@@ -14551,18 +14641,29 @@ function renderGamesSyncPanel(){
       </div>
       <div style="border:1px solid var(--border);border-radius:10px;padding:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
-          <strong style="font-size:13px">🎮 Xbox Game Pass PC</strong>
-          ${Store.get('xbox_openxbl_key', '') ? '<span class="tag success">Ключ сохранён</span>' : '<span class="tag accent">Нужен ключ</span>'}
+          <strong style="font-size:13px">🎮 Xbox Game Pass PC — вход через аккаунт Microsoft</strong>
+          <span class="tag accent" id="xboxOAuthTag">Проверка...</span>
         </div>
-        <div class="text-xs text-muted mt-2">Официального открытого API у Xbox нет — синхронизация идёт через OpenXBL (xbl.io). Получите бесплатный ключ, впишите его и XUID: все игры аккаунта (включая новые добавления Game Pass) подтянутся в библиотеку.</div>
+        <div class="text-xs text-muted mt-2">Официальный вход по Microsoft OAuth (XboxLive.signin): сервер синхронизации сам получает XBL/XSTS-токены, подтягивает ВСЕ игры аккаунта (включая новые добавления Game Pass PC) и достижения к каждой игре. Ключи xbl.io и XUID больше не нужны.</div>
+        <div class="text-xs mt-2" id="xboxOAuthStatus">Проверка статуса Xbox...</div>
         <div class="text-xs mt-2">В библиотеке Xbox: <b>${cntBy('Xbox Game Pass') + cntBy('Xbox')}</b> игр</div>
-        <div class="form-row"><input class="form-input" id="xbKeyInput" placeholder="OpenXBL API ключ (xbl.io)" value="${escapeHtml(xbKey)}"></div>
-        <div class="form-row"><input class="form-input" id="xbXuidInput" placeholder="XUID (16 цифр)" value="${escapeHtml(xbXuid)}"></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-sm btn-primary" onclick="xboxSyncNow()">🔄 Синхронизировать</button>
-          <button class="btn btn-sm" onclick="saveXboxSyncCfg()">💾 Сохранить</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          <button class="btn btn-sm btn-primary" onclick="xboxLogin()">🔑 Войти через Xbox</button>
+          <button class="btn btn-sm btn-2" onclick="xboxSyncGames()">🔄 Синхронизировать игры</button>
+          <button class="btn btn-sm" onclick="xboxLogout()">Выйти</button>
+          <button class="btn btn-sm" onclick="xboxInfo()" title="Настройка Azure / Redirect URI">?</button>
         </div>
-        <div class="text-xs text-muted mt-2">XUID показывается на xbl.io после входа. Если браузер блокирует запрос (CORS) — укажите URL Render-сервера в Настройках, он проксирует запрос.</div>
+        <details class="mt-2">
+          <summary class="text-xs text-muted" style="cursor:pointer">Альтернатива: OpenXBL (xbl.io)</summary>
+          <div class="form-row"><input class="form-input" id="xbKeyInput" placeholder="OpenXBL API ключ (xbl.io)" value="${escapeHtml(xbKey)}"></div>
+          <div class="form-row"><input class="form-input" id="xbXuidInput" placeholder="XUID (16 цифр)" value="${escapeHtml(xbXuid)}"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-primary" onclick="xboxSyncNow()">🔄 Синхронизировать (OpenXBL)</button>
+            <button class="btn btn-sm" onclick="saveXboxSyncCfg()">💾 Сохранить</button>
+          </div>
+          <div class="text-xs text-muted mt-2">XUID показывается на xbl.io после входа. Если браузер блокирует запрос (CORS) — укажите URL Render-сервера в Настройках, он проксирует запрос.</div>
+        </details>
+        <div class="text-xs text-muted mt-2">Первый вход: откроется страница Microsoft — после подтверждения вернётесь в трекер, статус появится здесь автоматически.</div>
       </div>
     </div>
     <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
@@ -14651,6 +14752,352 @@ function gfxSettingsHtml(){
 
 /* применяем сохранённый графический режим до первой отрисовки вкладок */
 try { applyGfxSettings(); } catch(e){ console.warn('applyGfxSettings failed', e); }
+
+/* ============================================================
+   v6.0 — вход через Xbox (Microsoft OAuth) + достижения
+   Steam/Xbox с мини-гайдами из гайдов Steam по игре
+   ============================================================ */
+
+/* ---------- базовый URL сервера синхронизации ---------- */
+function achServerBase(){
+  const b = (Store.get('render_server_url','') || '').trim().replace(/\/+$/, '');
+  if (b) return b;
+  return (location.protocol && location.protocol.indexOf('http') === 0) ? location.origin : '';
+}
+function achServerHeaders(){
+  const h = { 'Accept': 'application/json' };
+  const k = Store.get('render_server_key', '') || '';
+  if (k) h['X-API-Key'] = k;
+  return h;
+}
+async function achServerFetch(pathName){
+  const base = normalizeServerUrl(achServerBase());
+  if (!base) throw new Error('Сервер синхронизации не задан — укажите его URL во вкладке «Настройки» или откройте трекер с самого сервера (node server.js)');
+  return serverFetchJson(pathName, { headers: achServerHeaders(), timeoutMs: 30000 });
+}
+
+/* ---------- Xbox OAuth: вход / выход / статус / синхронизация ---------- */
+function xboxLogin(){
+  const base = achServerBase();
+  if (!base){ toast('Укажите URL Render-сервера (Настройки → Сервер синхронизации) или откройте трекер с самого сервера', 'error'); return; }
+  toast('Перенаправление на вход Microsoft/Xbox...', 'info');
+  setTimeout(() => { window.location.href = base + '/api/xbox/login'; }, 350);
+}
+async function xboxLogout(){
+  try { await achServerFetch('/api/xbox/logout'); } catch(e){}
+  try { const cfg = getApiConfig('xbox'); cfg.connected = false; setApiConfig('xbox', cfg); } catch(e){}
+  toast('Выход из Xbox выполнен, токены удалены с сервера', 'info');
+  refreshTab('games');
+}
+async function xboxRefreshStatusUI(){
+  const el = document.getElementById('xboxOAuthStatus');
+  const tag = document.getElementById('xboxOAuthTag');
+  if (!el) return;
+  try {
+    const d = await achServerFetch('/api/xbox/status');
+    if (d.connected){
+      const gt = d.gamertag || 'аккаунт';
+      el.innerHTML = '<span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+        (d.gamerpic ? '<img src="' + escapeHtml(d.gamerpic) + '" alt="" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border)">' : '') +
+        '<span><b>' + escapeHtml(gt) + '</b>' + (d.gamerscore ? ' · ' + escapeHtml(String(d.gamerscore)) + ' G' : '') + '</span>' +
+        '<span class="tag success">Xbox подключён</span></span>';
+      if (tag){ tag.textContent = 'Подключено'; tag.className = 'tag success'; }
+      try { const cfg = getApiConfig('xbox'); cfg.connected = true; cfg.nickname = gt; setApiConfig('xbox', cfg); } catch(e){}
+    } else {
+      el.innerHTML = '<span class="text-muted" title="' + escapeHtml(d.message || '') + '">Не подключено — нажмите «Войти через Xbox»</span>';
+      if (tag){ tag.textContent = 'Не подключено'; tag.className = 'tag accent'; }
+    }
+  } catch(e){
+    el.innerHTML = '<span class="text-muted">Сервер недоступен: ' + escapeHtml(e.message || '') + '</span>';
+    if (tag){ tag.textContent = 'Нет сервера'; tag.className = 'tag'; }
+  }
+}
+async function xboxSyncGames(){
+  toast('Синхронизация игр Xbox...', 'info');
+  try {
+    const d = await achServerFetch('/api/xbox/games');
+    const objs = (d.titles || []).filter(t => t.name).map(t => ({ title: t.name, platform: 'Xbox Game Pass', titleId: t.titleId || 0, coverUrl: t.displayImage || '' }));
+    if (!objs.length){ toast('Xbox: аккаунт не вернул игр — выполните вход и убедитесь, что профиль Xbox Live активен', 'warning'); return; }
+    const added = mergeGamesIntoLibrary(objs);
+    try { const cfg = getApiConfig('xbox'); cfg.connected = true; if (d.gamertag) cfg.nickname = d.gamertag; setApiConfig('xbox', cfg); } catch(e){}
+    toast('Xbox' + (d.gamertag ? ' (' + d.gamertag + ')' : '') + ': найдено ' + objs.length + ' игр, новых добавлено — ' + added, added ? 'success' : 'info');
+    refreshTab('games');
+  } catch(e){ toast('Xbox: ' + (e.message || 'ошибка сети'), 'error'); }
+}
+
+/* ---------- кэши достижений ---------- */
+function achListCacheGet(key){
+  const c = Store.get('game_achievements_v6', {});
+  const e = c[key];
+  if (e && e.list && Date.now() - (e.ts || 0) < 6 * 3600 * 1000) return e;
+  return null;
+}
+function achListCacheSet(key, list, extra){
+  const c = Store.get('game_achievements_v6', {});
+  c[key] = Object.assign({ ts: Date.now(), list: list }, extra || {});
+  Store.set('game_achievements_v6', c);
+}
+function achSummarySet(gameId, list){
+  const unlocked = list.filter(a => a.achieved).length;
+  const s = Store.get('game_ach_summary', {});
+  s[gameId] = { unlocked: unlocked, total: list.length, ts: Date.now() };
+  Store.set('game_ach_summary', s);
+}
+function achSummaryBadge(g){
+  const s = Store.get('game_ach_summary', {})[g.id];
+  if (!s || !s.total) return '';
+  const pct = Math.round((s.unlocked || 0) / s.total * 100);
+  return '<span class="tag ' + ((s.unlocked || 0) ? 'success' : 'accent') + '" title="Прогресс достижений">🏆 ' + s.unlocked + '/' + s.total + ' · ' + pct + '%</span>';
+}
+
+/* ---------- загрузка достижений: Steam и Xbox ---------- */
+async function fetchSteamAchList(appid, force){
+  const ck = 'steam:' + appid;
+  if (!force){ const c = achListCacheGet(ck); if (c) return { list: c.list, fromCache: true, note: c.note || '' }; }
+  const cfg = getApiConfig('steam');
+  const key = (cfg.apiKey || '').trim(), sid = (cfg.steamId || '').trim();
+  if (!key || !sid) { const e = new Error('Steam API-ключ и SteamID добавляются отдельно'); e.code = 'no_key'; throw e; }
+  const d = await achServerFetch('/api/steam/achievements?appid=' + encodeURIComponent(appid) + '&key=' + encodeURIComponent(key) + '&steamid=' + encodeURIComponent(sid) + '&lang=ru');
+  if (!d.achievements || !d.achievements.length) throw new Error('Steam не вернул достижений для appid ' + appid + ' (проверьте игру)');
+  achListCacheSet(ck, d.achievements, { appid: appid, note: d.profileNote || '' });
+  return { list: d.achievements, fromCache: false, note: d.profileNote || '' };
+}
+async function fetchXboxAchList(titleId, force){
+  const ck = 'xbox:' + titleId;
+  if (!force){ const c = achListCacheGet(ck); if (c) return { list: c.list, fromCache: true }; }
+  const d = await achServerFetch('/api/xbox/achievements?titleId=' + encodeURIComponent(titleId));
+  const list = d.achievements || [];
+  achListCacheSet(ck, list, { titleId: titleId });
+  return { list: list, fromCache: false };
+}
+async function resolveSteamAppId(title){
+  const d = await achServerFetch('/api/steam/resolve?name=' + encodeURIComponent(title || ''));
+  return (d && d.appid) || 0;
+}
+
+/* ---------- мини-гайды из гайдов Steam ---------- */
+function guideCacheGet(appid, name){
+  const c = Store.get('game_guides_cache', {});
+  const e = c[appid + '|' + String(name || '').toLowerCase()];
+  if (e && Date.now() - (e.ts || 0) < 7 * 24 * 3600 * 1000) return e;
+  return null;
+}
+function guideCacheSet(appid, name, data){
+  const c = Store.get('game_guides_cache', {});
+  c[appid + '|' + String(name || '').toLowerCase()] = Object.assign({ ts: Date.now() }, data);
+  const keys = Object.keys(c);
+  if (keys.length > 400) keys.slice(0, keys.length - 400).forEach(k => delete c[k]);
+  Store.set('game_guides_cache', c);
+}
+async function fetchSteamGuide(appid, name){
+  const cached = guideCacheGet(appid, name);
+  if (cached && (cached.url || cached.none)) return cached;
+  const d = await achServerFetch('/api/steam/guides?appid=' + encodeURIComponent(appid) + '&name=' + encodeURIComponent(name || ''));
+  const out = { url: (d.guides && d.guides[0] && d.guides[0].url) || (d.searchUrl || ''), title: (d.guides && d.guides[0] && d.guides[0].title) || '' };
+  if (!out.url) out.none = true;
+  guideCacheSet(appid, name, out);
+  return out;
+}
+
+/* ---------- модальное окно достижений (v6.0) ---------- */
+window.__achModalState = null;
+function rarityRu(cat){
+  const m = { common: 'Обычное', rare: 'Редкое', epic: 'Эпичное', legendary: 'Легендарное', 'rare achievement': 'Редкое', 'epic achievement': 'Эпичное', legacy: 'Легендарное' };
+  return m[String(cat || '').toLowerCase()] || cat || 'Обычное';
+}
+function fmtAchDate(unixSec){
+  if (!unixSec) return '';
+  try { return new Date(unixSec < 1e12 ? unixSec * 1000 : unixSec).toLocaleDateString('ru-RU'); } catch(e){ return ''; }
+}
+async function showAchievements(id){
+  const g = Store.get('games', []).find(x => x.id === id);
+  if (!g) return;
+  window.__achModalState = { gameId: id, list: [], appid: g.appid || 0, titleId: g.titleId || 0, title: g.title };
+  const body = `<div style="display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap">
+      ${g.coverUrl ? `<img src="${escapeHtml(g.coverUrl)}" style="width:200px;height:95px;object-fit:cover;border-radius:8px;border:1px solid var(--border)" onerror="this.style.display='none'">` : `<div style="width:200px;height:95px;display:flex;align-items:center;justify-content:center;background:var(--bg-input);border:1px solid var(--border);border-radius:8px">${SVG('gamepad',36)}</div>`}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:18px;font-weight:700;font-family:'Montserrat',sans-serif">${escapeHtml(g.title)}</div>
+        <div class="text-xs text-muted mt-2">
+          <span class="tag accent">${escapeHtml(g.platform||'manual')}</span>
+          <span class="tag" style="margin-left:4px">${({playing:'Играю',completed:'Пройдено',planned:'В планах',dropped:'Брошено'})[g.status]||g.status||'—'}</span>
+          ${g.titleId ? `<span class="tag" style="margin-left:4px;color:#9BE84C;border-color:#9BE84C">Xbox titleId</span>` : ''}
+          ${g.appid ? `<span class="tag mono" style="margin-left:4px">appid: ${escapeHtml(String(g.appid))}</span>` : ''}
+        </div>
+        <div id="ach-progress" class="text-xs text-muted mt-2">${typeof achSummaryBadge === 'function' && achSummaryBadge(g) ? 'Кэш: ' + achSummaryBadge(g).replace(/<[^>]*>/g, '') : 'Загрузка достижений с аккаунта...'}</div>
+      </div>
+    </div>
+    <div id="ach-status" class="text-xs text-muted mb-2">Синхронизация достижений...</div>
+    <div id="ach-list" style="max-height:330px;overflow-y:auto"><div class="text-xs text-muted" style="padding:14px;text-align:center">Загрузка...</div></div>
+    <div class="form-row mt-3"><label class="form-label">Добавить достижение вручную</label></div>
+    <div class="form-grid">
+      <div class="form-row"><input class="form-input" id="ach-name" placeholder="Название достижения"></div>
+      <div class="form-row"><select class="form-select" id="ach-cat"><option value="обычное">Обычное</option><option value="редкое">Редкое</option><option value="эпичное">Эпическое</option><option value="скрытое">Скрытое</option><option value="легендарное">Легендарное</option></select></div>
+    </div>
+    <div class="form-row"><textarea class="form-textarea" id="ach-guide" placeholder="Краткий мини-гайд: как получить достижение (1-3 предложения)"></textarea></div>`;
+  openModal(`<div class="modal-header"><div class="modal-title">${SVG('award',14)} Достижения — ${escapeHtml(g.title)}</div><button class="modal-close" onclick="closeModal()">${SVG('x',14)}</button></div><div class="modal-body">${body}</div><div class="modal-footer"><button class="btn" onclick="closeModal()">Закрыть</button><button class="btn" onclick="reloadAchModal(true)" title="Обновить достижения с аккаунта">${SVG('refresh',12)} Синхронизировать</button><button class="btn" onclick="loadAllGuidesForGame()" title="Мини-гайды из гайдов Steam по игре для всех достижений">📖 Мини-гайды</button><button class="btn btn-primary" onclick="addAch('${g.id}')">${SVG('plus',14)} Добавить</button></div>`, 'lg');
+  reloadAchModal(false);
+}
+async function reloadAchModal(force){
+  const st = window.__achModalState;
+  if (!st) return;
+  const listEl = document.getElementById('ach-list');
+  const statusEl = document.getElementById('ach-status');
+  if (!listEl || !statusEl) return;
+  const g = Store.get('games', []).find(x => x.id === st.gameId);
+  if (!g) return;
+  const manual = (g.achievements || []);
+  statusEl.textContent = 'Синхронизация достижений...';
+  let list = [], src = '', err = '', note = '';
+  try {
+    if (!st.appid){
+      try { st.appid = await resolveSteamAppId(g.title); } catch(e){}
+      if (st.appid){
+        const games = Store.get('games', []);
+        const gi = games.findIndex(x => x.id === g.id);
+        if (gi >= 0){
+          games[gi].appid = st.appid;
+          games[gi].coverUrl = games[gi].coverUrl || ('https://cdn.cloudflare.steamstatic.com/steam/apps/' + st.appid + '/header.jpg');
+          Store.set('games', games);
+        }
+      }
+    }
+    if (st.titleId){
+      const r = await fetchXboxAchList(st.titleId, force);
+      list = r.list; src = 'Xbox Live' + (r.fromCache ? ' (кэш)' : '');
+    } else if (st.appid){
+      const r = await fetchSteamAchList(st.appid, force);
+      list = r.list; src = 'Steam' + (r.fromCache ? ' (кэш)' : ''); note = r.note || '';
+    } else {
+      err = 'У игры нет источника достижений: нет appid Steam и titleId Xbox. Запустите синхронизацию Steam/Xbox или укажите appid/titleId в форме игры.';
+    }
+  } catch(e){
+    err = (e.code === 'no_key')
+      ? 'Steam API-ключ и SteamID добавляются отдельно: Настройки → Игровые платформы → Steam → «Настроить API»'
+      : (e.message || 'Ошибка загрузки достижений');
+  }
+  st.list = list;
+  if (list.length){
+    achSummarySet(g.id, list);
+    const unlocked = list.filter(a => a.achieved).length;
+    statusEl.innerHTML = 'Источник: <b>' + escapeHtml(src) + '</b> · открыто <b>' + unlocked + '</b> из <b>' + list.length + '</b>' + (note ? ' · <span class="text-muted">' + escapeHtml(note) + '</span>' : '') + (err ? ' · <span style="color:#FF8A80">' + escapeHtml(err) + '</span>' : '');
+    const prog = document.getElementById('ach-progress');
+    if (prog) prog.textContent = '🏆 ' + unlocked + ' / ' + list.length + ' достижений (' + Math.round(unlocked / list.length * 100) + '%)';
+  } else {
+    statusEl.innerHTML = '<span style="color:#FF8A80">' + escapeHtml(err || 'Достижения недоступны') + '</span>';
+  }
+  renderAchList(st, manual);
+  loadGuidesAuto(st);
+}
+function achCardHtml(a, i){
+  const unlocked = !!a.achieved;
+  const iconUrl = a.icon || a.iconUrl || '';
+  const iconHtml = iconUrl
+    ? `<img src="${escapeHtml(iconUrl)}" loading="lazy" alt="" style="width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;${unlocked ? '' : 'filter:grayscale(1) brightness(0.6);'}" onerror="this.style.display='none';this.parentElement.textContent='🏆'">`
+    : '🏆';
+  const gs = a.gamerscore ? '<span class="tag accent" style="margin-left:6px">' + escapeHtml(String(a.gamerscore)) + 'G</span>' : '';
+  const rar = a.rarity ? '<span class="tag" style="margin-left:6px;color:#B388FF;border-color:#B388FF">' + escapeHtml(rarityRu(a.rarity)) + (a.percent != null ? ' · ' + Number(a.percent).toFixed(1) + '%' : '') + '</span>' : '';
+  const desc = escapeHtml(a.description || (a.secret && !unlocked ? 'Секретное достижение.' : '') || '');
+  const side = unlocked && a.unlocktime
+    ? '<div class="text-xs" style="color:#00E676">✓ ' + fmtAchDate(a.unlocktime) + '</div>'
+    : '<div class="text-xs text-muted">🔒 ' + (unlocked ? 'открыто' : 'не открыто') + '</div>';
+  return `<div style="display:flex;gap:12px;padding:10px;background:var(--bg-input);border:1px solid var(--border);border-left:3px solid ${unlocked ? '#00E676' : 'var(--border)'};margin-bottom:6px;border-radius:8px;align-items:flex-start;${unlocked ? '' : 'opacity:0.85;'}">
+    <div style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--bg);border-radius:8px;overflow:hidden">${iconHtml}</div>
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap"><strong style="font-size:13px">${escapeHtml(a.name || a.displayName || '—')}</strong>${gs}${rar}</div>
+      <div class="text-xs text-muted mt-2">${desc}</div>
+      <div class="text-xs mt-2" id="ach-guide-${i}" style="color:var(--accent)"></div>
+    </div>
+    <div style="text-align:right;flex-shrink:0">${side}<button class="btn btn-sm mt-2" title="Мини-гайд: как получить (из гайдов Steam по игре)" onclick="loadSingleGuide(${i})">📖</button></div>
+  </div>`;
+}
+function renderAchList(st, manual){
+  const listEl = document.getElementById('ach-list');
+  if (!listEl) return;
+  const manualHtml = manual.length ? '<div class="text-xs text-muted mt-2 mb-2">Сохранённые вручную достижения (' + manual.length + ')</div>' + manual.map(a => `<div style="display:flex;gap:12px;padding:10px;background:var(--bg-input);border:1px solid var(--border);margin-bottom:6px;border-radius:8px;align-items:flex-start">
+      <div style="width:40px;height:40px;background:${a.color||'var(--accent)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:6px">${a.iconUrl ? `<img src="${escapeHtml(a.iconUrl)}" style="width:40px;height:40px;border-radius:6px" onerror="this.style.display='none'">` : SVG(a.icon||'award',20)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong style="font-size:13px">${escapeHtml(a.name||'—')}</strong><span class="ach-rarity-badge common">${escapeHtml(a.category||'обычное').toUpperCase()}</span></div>
+        <div class="text-xs text-muted mt-2">${escapeHtml(a.description || a.guide || '')}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteAch('${st.gameId}','${a.id}')">${SVG('trash',11)}</button>
+    </div>`).join('') : '';
+  const liveHtml = st.list.length
+    ? '<div class="text-xs text-muted mb-2">Слева иконка · справа название, описание и мини-гайд. Кнопка 📖 подтягивает мини-гайд из гайдов Steam по игре.</div>' + st.list.map((a, i) => achCardHtml(a, i)).join('')
+    : '';
+  listEl.innerHTML = liveHtml + manualHtml;
+  if (!st.list.length && !manual.length){
+    listEl.innerHTML = '<div class="text-xs text-muted" style="padding:20px;text-align:center">Достижения не загружены. Нажмите «Синхронизировать» или добавьте вручную.</div>';
+  }
+}
+function renderGuideInto(i, gd){
+  const el = document.getElementById('ach-guide-' + i);
+  if (!el) return;
+  if (gd && gd.url){
+    el.innerHTML = '📖 ' + (gd.title ? '<b>' + escapeHtml(gd.title) + '</b> · ' : '') + '<a href="' + escapeHtml(gd.url) + '" target="_blank" rel="noopener" style="color:var(--accent)">мини-гайд из гайдов Steam</a>';
+  }
+}
+async function loadSingleGuide(i){
+  const st = window.__achModalState;
+  if (!st || !st.list || !st.list[i]) return;
+  if (!st.appid){ toast('Мини-гайды из Steam доступны для игр с appid', 'warning'); return; }
+  const el = document.getElementById('ach-guide-' + i);
+  if (el) el.innerHTML = '📖 Поиск гайда...';
+  try {
+    const gd = await fetchSteamGuide(st.appid, st.list[i].name || st.list[i].displayName || '');
+    if (gd.url) renderGuideInto(i, gd);
+    else if (el) el.innerHTML = '<span class="text-muted">Гайды по этому достижению не найдены</span>';
+  } catch(e){
+    if (el) el.innerHTML = '<span class="text-muted">Гайд недоступен: ' + escapeHtml(e.message || '') + '</span>';
+  }
+}
+async function loadGuidesAuto(st){
+  if (!st || !st.appid || !st.list || !st.list.length) return;
+  const targets = [];
+  st.list.forEach((a, i) => { if (!a.achieved && targets.length < 10) targets.push(i); });
+  for (const i of targets){
+    if (window.__achModalState !== st) return; // модалку закрыли / открыли другую игру
+    try { const gd = await fetchSteamGuide(st.appid, st.list[i].name || st.list[i].displayName || ''); if (gd.url) renderGuideInto(i, gd); } catch(e){}
+    await new Promise(r => setTimeout(r, 300));
+  }
+}
+async function loadAllGuidesForGame(){
+  const st = window.__achModalState;
+  if (!st || !st.list || !st.list.length){ toast('Сначала синхронизируйте достижения', 'warning'); return; }
+  if (!st.appid){ toast('Мини-гайды из Steam доступны для игр с appid', 'warning'); return; }
+  toast('Загрузка мини-гайдов из Steam (кэшируется)...', 'info');
+  let fetched = 0;
+  for (let i = 0; i < st.list.length; i++){
+    if (window.__achModalState !== st) return;
+    const el = document.getElementById('ach-guide-' + i);
+    if (el && !el.innerHTML.trim()){
+      try { const gd = await fetchSteamGuide(st.appid, st.list[i].name || st.list[i].displayName || ''); if (gd.url) renderGuideInto(i, gd); } catch(e){}
+      fetched++;
+      if (fetched % 5 === 0) await new Promise(r => setTimeout(r, 400));
+    }
+  }
+  toast('Мини-гайды загружены', 'success');
+}
+
+/* ---------- возврат с OAuth: ?xbox=connected / ?xbox=<ошибка> ---------- */
+(function xboxUrlCheck(){
+  function run(){
+    try {
+      const qp = new URLSearchParams(location.search);
+      const xq = qp.get('xbox');
+      if (!xq) return;
+      qp.delete('xbox');
+      const rest = qp.toString();
+      history.replaceState({}, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+      if (xq === 'connected'){
+        toast('Xbox подключён! Нажмите «Синхронизировать игры», чтобы добавить игры аккаунта.', 'success');
+        if (typeof switchTab === 'function') switchTab('games');
+      } else {
+        toast('Вход через Xbox не завершён: ' + decodeURIComponent(xq), 'error');
+      }
+    } catch(e){}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+})();
 </script>
 </body>
 </html>
