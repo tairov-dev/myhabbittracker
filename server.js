@@ -57,7 +57,7 @@ const crypto = require('crypto');
 const PORT     = process.env.PORT || 3000;
 const ROOT     = __dirname;
 const API_KEY  = process.env.RENDER_API_KEY || ''; // необязательная защита
-const VERSION  = '3.1.3';
+const VERSION  = '3.1.4';
 
 const XBOX_CLIENT_ID     = process.env.XBOX_CLIENT_ID     || '45ff85a2-0874-43d7-b896-cf1b3af2e593';
 /* v3.1.1: секрет «myhabbittrackerxbox» (ID 8b26845b-3e38-4492-ba4d-8c4779569247) —
@@ -642,17 +642,25 @@ async function handleApi(req, res, urlPath, query) {
   if (urlPath === '/api/xbox/games') {
     try {
       const t = await xboxEnsureTokens(false);
+      /* v3.1.4: titlehub менял форматы — пробуем по цепочке:
+         (1) users/me + decoration (актуальный путь для своего аккаунта),
+         (2) users/xuid + decoration, (3) легаси /titles/detail */
       const xuid = xboxXuid(t);
       if (!xuid) throw new Error('Не определён XUID — повторите вход');
-      const d = await (async () => {
-        /* v3.1.3: при 404 на старом формате пробуем актуальный titlehub decoration */
-        try {
-          return await xblGet(t, 'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/detail?maxItems=1000&decoration=All');
-        } catch (e1) {
-          if (!/HTTP 404/.test(String(e1.message || ''))) throw e1;
-          return await xblGet(t, 'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/titlehub/decoration/detail?maxItems=1000');
+      const thUrls = [
+        'https://titlehub.xboxlive.com/users/me/titles/titlehub/decoration/detail?maxItems=200',
+        'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/titlehub/decoration/detail?maxItems=200',
+        'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/detail?maxItems=1000&decoration=All'
+      ];
+      let d = null, lastErr = null;
+      for (const thUrl of thUrls) {
+        try { d = await xblGet(t, thUrl); break; }
+        catch (thE) {
+          lastErr = thE;
+          if (!/HTTP 400|HTTP 404/.test(String(thE.message || ''))) throw thE;
         }
-      })();
+      }
+      if (!d) throw (lastErr || new Error('titlehub недоступен'));
       const titles = (d.titles || [])
         .filter(x => String(x.type || '').toLowerCase() === 'game' && x.name)
         .map(x => ({
@@ -675,9 +683,8 @@ async function handleApi(req, res, urlPath, query) {
     if (!titleId) { sendJson(res, 400, { error: 'Нужен параметр titleId' }); return; }
     try {
       const t = await xboxEnsureTokens(false);
-      const xuid = xboxXuid(t);
-      if (!xuid) throw new Error('Не определён XUID — повторите вход');
-      const d = await xblGet(t, 'https://achievements.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/achievements?titleId=' + encodeURIComponent(titleId) + '&maxItems=200');
+      /* v3.1.4: users/me — надёжнее, чем xuid-моникер (свой аккаунт) */
+      const d = await xblGet(t, 'https://achievements.xboxlive.com/users/me/achievements?titleId=' + encodeURIComponent(titleId) + '&maxItems=200');
       const list = (d.achievements || []).map(a => {
         const unlocked = !!(a.progression && a.progression.progressState === 'Achieved');
         const tu = (a.progression && a.progression.timeUnlocked) ? Math.floor(new Date(a.progression.timeUnlocked).getTime() / 1000) : 0;
