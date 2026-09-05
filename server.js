@@ -57,7 +57,7 @@ const crypto = require('crypto');
 const PORT     = process.env.PORT || 3000;
 const ROOT     = __dirname;
 const API_KEY  = process.env.RENDER_API_KEY || ''; // необязательная защита
-const VERSION  = '3.1.4';
+const VERSION  = '3.1.5';
 
 const XBOX_CLIENT_ID     = process.env.XBOX_CLIENT_ID     || '45ff85a2-0874-43d7-b896-cf1b3af2e593';
 /* v3.1.1: секрет «myhabbittrackerxbox» (ID 8b26845b-3e38-4492-ba4d-8c4779569247) —
@@ -635,6 +635,47 @@ async function handleApi(req, res, urlPath, query) {
   if (urlPath === '/api/xbox/logout') {
     try { fs.rmSync(XBOX_TOKEN_FILE, { force: true }); } catch (e) {}
     sendJson(res, 200, { ok: true, note: 'Xbox отключён, токены удалены' });
+    return;
+  }
+
+  /* ---------- ДИАГНОСТИКА titlehub: пробуем все известные форматы разом ---------- */
+  if (urlPath === '/api/xbox/debug') {
+    try {
+      const t = await xboxEnsureTokens(false);
+      const xuid = xboxXuid(t);
+      const probes = [
+        ['profile me',                 'https://profile.xboxlive.com/users/me/profile/settings?settings=Gamertag', '2'],
+        ['profile xuid',               'https://profile.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/profile/settings?settings=Gamertag', '2'],
+        ['th me deco max_items',       'https://titlehub.xboxlive.com/users/me/titles/titlehub/decoration/detail?max_items=25', '2'],
+        ['th me deco maxItems',        'https://titlehub.xboxlive.com/users/me/titles/titlehub/decoration/detail?maxItems=25', '2'],
+        ['th me deco cv1',             'https://titlehub.xboxlive.com/users/me/titles/titlehub/decoration/detail?max_items=25', '1'],
+        ['th me legacy',               'https://titlehub.xboxlive.com/users/me/titles/detail?maxItems=25&decoration=All', '2'],
+        ['th xuid deco max_items',     'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/titlehub/decoration/detail?max_items=25', '2'],
+        ['th xuid legacy',             'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/detail?maxItems=25&decoration=All', '2']
+      ];
+      const out = [];
+      for (const [label, url, cv] of probes) {
+        try {
+          const r = await httpsRequest(url, {
+            headers: {
+              'Authorization': 'XBL3.0 x=' + t.uhs + ';' + t.xstsToken,
+              'x-xbl-contract-version': cv,
+              'Accept': 'application/json',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'User-Agent': 'DisciplineTracker/6.0'
+            }
+          });
+          let body = '';
+          try { body = JSON.stringify(JSON.parse(r.text)).slice(0, 160); } catch (e) { body = String(r.text || '').slice(0, 160); }
+          out.push({ probe: label, cv: cv, status: r.status, body: body });
+        } catch (e) {
+          out.push({ probe: label, cv: cv, status: 'ERR', body: String(e.message || '').slice(0, 160) });
+        }
+      }
+      sendJson(res, 200, { xuid: xuid, uhs_len: String(t.uhs || '').length, xsts_len: String(t.xstsToken || '').length, probes: out });
+    } catch (e) {
+      sendJson(res, e.code === 'no_auth' ? 401 : 502, { error: e.message });
+    }
     return;
   }
 
