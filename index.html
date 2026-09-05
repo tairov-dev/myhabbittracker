@@ -810,7 +810,8 @@ a:hover{text-decoration:underline}
 /* ===== GAME CARDS ===== */
 .game-card{background:var(--bg-card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);cursor:pointer}
 .game-card:hover{border-color:var(--accent);transform:translateY(-4px);box-shadow:0 12px 32px rgba(0,0,0,0.4),0 0 20px var(--accent-glow)}
-.game-cover{width:100%;height:120px;object-fit:cover;background:var(--bg-input)}
+.game-cover{width:100%;height:120px;object-fit:cover;background:var(--bg-input);display:block}
+.game-cover-ph{width:100%;height:120px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(157,78,221,0.12),rgba(0,217,255,0.06));color:var(--text-muted)}
 
 /* ===== MOVIE CARDS ===== */
 .movie-card{background:var(--bg-card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:all 0.3s}
@@ -1097,7 +1098,7 @@ a:hover{text-decoration:underline}
   <div class="app-content-wrap">
   <header class="header">
     <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()" title="Меню" aria-label="Toggle sidebar"><span></span><span></span><span></span></button>
-    <div class="logo"><span class="logo-dot"></span>DISCIPLINE.TRACKER <span class="mono" style="font-size:9px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:1px 5px;vertical-align:middle">v6.0.1</span></div>
+    <div class="logo"><span class="logo-dot"></span>DISCIPLINE.TRACKER <span class="mono" style="font-size:9px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:1px 5px;vertical-align:middle">v6.1.0</span></div>
     <div class="header-stats">
       <span class="stat-lvl">LVL <span id="user-lvl">1</span></span>
       <div class="xp-bar"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
@@ -6214,26 +6215,42 @@ function(){
   const games = Store.get('games', []);
   if(!window.__gSort) window.__gSort = 'recent';
   if(!window.__gFilter) window.__gFilter = 'all';
-  const sort = window.__gSort, filter = window.__gFilter;
+  if(!window.__gPlatform) window.__gPlatform = 'all'; // v6.1.0: фильтр по игровой площадке
+  const sort = window.__gSort, filter = window.__gFilter, platform = window.__gPlatform;
+  // v6.1.0: список площадок строится динамически из библиотеки
+  const platList = [...new Set(games.map(g => g.platform || 'Другое'))].sort((a,b)=>a.localeCompare(b,'ru'));
   let sorted = [...games];
   if (filter !== 'all') sorted = sorted.filter(g => g.status === filter);
-  if (sort === 'az') sorted.sort((a,b)=>a.title.localeCompare(b.title));
+  if (platform !== 'all') sorted = sorted.filter(g => (g.platform || 'Другое') === platform);
+  if (sort === 'az') sorted.sort((a,b)=>(a.title||'').localeCompare(b.title||'','ru'));
+  else if (sort === 'za') sorted.sort((a,b)=>(b.title||'').localeCompare(a.title||'','ru'));
   else if (sort === 'hours') sorted.sort((a,b)=>(b.hours||0)-(a.hours||0));
   else if (sort === 'recent') sorted.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  let grid = sorted.map(g => `<div class="game-card" onclick="showAchievements('${g.id}')">
-    <img class="game-cover" loading="lazy" decoding="async" data-game-id="${g.id}" src="${escapeHtml(g.coverUrl||'')}" onerror="this.style.background='var(--bg-input)';this.removeAttribute('src')" alt="">
+  // v6.1.0: карточка игры — обложка с заглушкой-фолбэком, статус и быстрое редактирование
+  let grid = sorted.map(g => {
+    const stRu = ({playing:'Играю',completed:'Пройдено',planned:'В планах',dropped:'Брошено'})[g.status]||g.status||'В планах';
+    const stCls = g.status==='completed'?'success':g.status==='playing'?'accent':g.status==='dropped'?'danger':'';
+    const cover = g.coverUrl
+      ? `<img class="game-cover" loading="lazy" decoding="async" data-game-id="${g.id}" src="${escapeHtml(g.coverUrl)}" onerror="gameCoverFallback(this)" alt="">`
+      : `<div class="game-cover game-cover-ph" data-game-id="${g.id}">${SVG('gamepad',34)}</div>`;
+    return `<div class="game-card" onclick="showAchievements('${g.id}')">
+    ${cover}
     <div style="padding:10px">
-      <div style="font-weight:600;font-size:13px" class="truncate">${escapeHtml(g.title)}</div>
-      <div class="text-xs text-muted mt-2" style="display:flex;justify-content:space-between">
+      <div style="font-weight:600;font-size:13px" class="truncate" title="${escapeHtml(g.title)}">${escapeHtml(g.title)}</div>
+      <div class="text-xs text-muted mt-2" style="display:flex;justify-content:space-between;align-items:center;gap:6px">
         <span>${SVG('clock',11)} ${g.hours||0}ч${g.year ? ' · ' + g.year : ''}</span>
-        <span class="tag ${g.status==='completed'?'success':g.status==='playing'?'accent':'danger'}">${({playing:'Играю',completed:'Пройдено',planned:'В планах',dropped:'Брошено'})[g.status]||g.status}</span>
+        <span class="tag ${stCls}" title="Статус прохождения">${stRu}</span>
       </div>
-      <div class="text-xs text-muted mt-2" style="display:flex;justify-content:space-between">
-        <span>${SVG('gamepad',11)} ${escapeHtml(g.platform||'')}</span>
+      <div class="text-xs text-muted mt-2" style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="display:inline-flex;align-items:center;gap:4px;min-width:0">${SVG('gamepad',11)} <span class="truncate" style="max-width:110px">${escapeHtml(g.platform||'')}</span></span>
         ${g.addedFrom==='preset'?'<span class="tag" style="color:#FFD600;border-color:#FFD600">PRESET</span>':''}${typeof achSummaryBadge==='function' ? achSummaryBadge(g) : ''}
       </div>
+      <div class="mt-2" style="display:flex;justify-content:flex-end">
+        <button class="btn btn-sm" onclick="event.stopPropagation();openGameForm('${g.id}')" title="Редактировать игру: статус прохождения, часы, платформа">${SVG('edit',11)} Статус</button>
+      </div>
     </div>
-  </div>`).join('');
+  </div>`;
+  }).join('');
   if (!sorted.length) grid = `<div class="empty">${SVG('gamepad',48)}<div>Нет игр. Добавьте вручную или синхронизируйте Steam.</div></div>`;
   // Multi-platform API panels
   const platforms = ['steam','xbox','epic','gog','battle','ubisoft','gfn'];
@@ -6275,13 +6292,19 @@ function(){
         <option value="planned" ${filter==='planned'?'selected':''}>В планах</option>
         <option value="dropped" ${filter==='dropped'?'selected':''}>Брошено</option>
       </select>
+      <select class="form-select" style="width:auto" onchange="window.__gPlatform=this.value;refreshTab('games')" title="Фильтр по игровой площадке">
+        <option value="all" ${platform==='all'?'selected':''}>Все площадки</option>
+        ${platList.map(p=>`<option value="${escapeHtml(p)}" ${platform===p?'selected':''}>${escapeHtml(p)}</option>`).join('')}
+      </select>
       <select class="form-select" style="width:auto" onchange="window.__gSort=this.value;refreshTab('games')">
         <option value="recent" ${sort==='recent'?'selected':''}>Недавние</option>
-        <option value="az" ${sort==='az'?'selected':''}>А-Я</option>
+        <option value="az" ${sort==='az'?'selected':''}>А-Я (A→Z)</option>
+        <option value="za" ${sort==='za'?'selected':''}>Я-А (Z→A)</option>
         <option value="hours" ${sort==='hours'?'selected':''}>По часам</option>
       </select>
       <button class="btn btn-2" onclick="openGameForm()">${SVG('plus',14)} Добавить вручную</button>
       <button class="btn btn-danger" onclick="deletePresetGames()" title="Удалить все предустановленные игры (из библиотеки 260)">${SVG('trash',14)} Удалить предустановленные</button>
+      <button class="btn btn-danger" onclick="deleteAllGames()" title="Удалить ВСЕ игры из библиотеки безвозвратно (v6.1.0)">${SVG('trash',14)} Удалить все игры</button>
       <button class="btn" onclick="exportGamesCsv()" title="Скачать библиотеку игр в CSV (Excel)">${SVG('export',14)} CSV</button>
       <button class="btn btn-2" onclick="resetGamesDisplay()" title="Сбросить отображение: фильтры, сортировка, кэш панелей. Игры не удаляются">${SVG('rotate-cw' in ICONS_LIB ? 'rotate-cw' : 'refresh',14)} Сброс отображения</button>
     </div>
@@ -6524,6 +6547,11 @@ function(){
   const catTotals = {};
   monthExpenses.forEach(t => { catTotals[t.category] = (catTotals[t.category]||0) + t.amount; });
   const topCat = Object.entries(catTotals).sort((a,b) => b[1] - a[1])[0];
+  // v6.1.0: общий месячный бюджет (редактируемый во вкладке)
+  const monthlyBudget = parseFloat(Store.get('finance_monthly_budget', 0)) || 0;
+  const mbPct = monthlyBudget > 0 ? (spentMonth / monthlyBudget) * 100 : 0;
+  const mbLeft = monthlyBudget - spentMonth;
+  const mbBarColor = mbPct >= 100 ? '#B71C1C' : mbPct >= 80 ? '#FF1744' : mbPct >= 50 ? '#FF8800' : '#00E676';
   // Filtered list (recent 50)
   let filtered = [...txns];
   if (window.__finFilter !== 'all') filtered = filtered.filter(t => t.type === window.__finFilter);
@@ -6590,6 +6618,25 @@ function(){
         <div class="profile-stat-item" style="grid-column:span 2"><div class="num" style="color:var(--accent);font-size:16px">${topCat ? escapeHtml(topCat[0]) + ' (' + topCat[1].toLocaleString('ru-RU') + ' ₴)' : '—'}</div><div class="label">Топ категория месяца</div></div>
       </div>
     </div>
+  </div>
+  <div class="card mb-4">
+    <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span style="display:flex;align-items:center;gap:6px"><span class="dot"></span>Месячный бюджет</span>
+      <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input type="number" class="form-input" id="mb-input" style="width:130px;padding:6px 10px" min="0" step="100" value="${monthlyBudget||''}" placeholder="Лимит ₴" title="Введите месячный лимит расходов и нажмите «Сохранить»">
+        <button class="btn btn-primary btn-sm" onclick="saveMonthlyBudget()" title="Сохранить месячный бюджет (v6.1.0)">${SVG('check',12)} Сохранить</button>
+      </span>
+    </div>
+    ${monthlyBudget > 0 ? `
+    <div style="margin-top:6px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;gap:8px;flex-wrap:wrap">
+        <span>Потрачено в этом месяце: <b class="mono">${spentMonth.toLocaleString('ru-RU')} ₴</b> из ${monthlyBudget.toLocaleString('ru-RU')} ₴</span>
+        <span class="mono" style="color:${mbBarColor}">${(Math.round(mbPct * 10) / 10).toLocaleString('ru-RU')}%</span>
+      </div>
+      <div style="height:10px;background:var(--bg-input);border-radius:5px;overflow:hidden">
+        <div style="height:100%;width:${Math.min(100,mbPct)}%;background:${mbBarColor};transition:width 0.5s"></div>
+      </div>
+      <div class="text-xs mt-2" style="color:${mbLeft >= 0 ? '#00E676' : '#FF5252'}">${mbLeft >= 0 ? 'Осталось: ' + mbLeft.toLocaleString('ru-RU') + ' ₴ до конца месяца' : 'Перерасход: ' + Math.abs(mbLeft).toLocaleString('ru-RU') + ' ₴'}</div>
+    </div>` : '<div class="text-xs text-muted mt-2">Лимит не задан — введите сумму выше и нажмите «Сохранить». Лимиты по отдельным категориям — в блоке ниже.</div>'}
   </div>
   <div class="card mb-4">
     <div class="section-title"><span class="dot"></span>Месячные бюджеты по категориям</div>
@@ -9413,7 +9460,7 @@ async function syncSteam(){
 // small Node server (server-sync.js) on Render.com that proxies these requests. The UI
 // here talks to that server, which then forwards the request to the official platform API.
 // ============================================================
-// v6.0.1 — устойчивые запросы к Render-серверу (фикс «Failed to fetch»)
+// v6.0.2 — фикс входа Xbox: кнопки «Подключить» ведут на серверный OAuth (redirect_uri из Azure)
 // ============================================================
 // Причины прежней ошибки:
 //  1) на сервере не было CORS-заголовков и обработки OPTIONS-preflight —
@@ -9764,8 +9811,8 @@ function xboxInfo(){
   openModal(`<div class="modal-header"><div class="modal-title">${SVG('gamepad',14)} Xbox — вход через аккаунт Microsoft</div><button class="modal-close" onclick="closeModal()">${SVG('x',14)}</button></div>
   <div class="modal-body">
     <div class="text-sm mb-3">Вход выполняется по официальному Microsoft OAuth (scope XboxLive.signin) через сервер синхронизации: сервер получает XBL/XSTS-токены и подтягивает игры и достижения Xbox.</div>
-    <div class="mono" style="background:var(--bg-input);padding:12px;border:1px solid var(--border);clip-path:var(--clip-cut-sm);font-size:12px;word-break:break-all">Application (client) ID: 45ff85a2-0874-43d7-b896-cf1b3af2e593<br>Secret: xboxgamepchabbittracekr (ID 852b73eb-cff2-4959-8bea-fa8b25ade4d4)<br>Redirect URI: https://ВАШ-СЕРВЕР/api/xbox/callback</div>
-    <div class="text-xs text-muted mt-3">В Azure Portal → Приложение → Authentication добавьте Redirect URI типа Web: <b>https://ваш-сервис.onrender.com/api/xbox/callback</b> (и локально http://localhost:3000/api/xbox/callback). После этого кнопка «Войти через Xbox» во вкладке «Игры» полностью рабочая.</div>
+    <div class="mono" style="background:var(--bg-input);padding:12px;border:1px solid var(--border);clip-path:var(--clip-cut-sm);font-size:12px;word-break:break-all">Application (client) ID: 45ff85a2-0874-43d7-b896-cf1b3af2e593<br>Secret: myhabbittrackerxbox (ID 8b26845b-3e38-4492-ba4d-8c4779569247)<br>Redirect URI: https://myhabbittracker-t76t.onrender.com/api/xbox/callback</div>
+    <div class="text-xs text-muted mt-3">⚠️ Если Microsoft показывает «The client does not exist or is not enabled for consumers» — в Azure Portal → Приложение → <b>Authentication → Supported account types</b> выберите вариант, включающий <b>личные аккаунты Microsoft</b> («Accounts in any organizational directory and personal Microsoft accounts») → Save. Xbox-аккаунт — это личный аккаунт, без этого вход блокируется самой Microsoft.</div>
     <button class="btn btn-primary mt-3" onclick="closeModal()">Понятно</button>
   </div>`);
 }
@@ -9795,135 +9842,6 @@ function openGameForm(id){
     Store.set('games',arr); toast('Игра сохранена','success'); refreshTab('games');
   });
 }
-function showAchievements(id){
-  const g = Store.get('games',[]).find(x=>x.id===id);
-  if (!g) return;
-  const achievements = g.achievements || [];
-  // Steam appid — try fetching achievements from Steam Schema API (cached)
-  const coversCache = Store.get('game_covers', {});
-  const achCache = Store.get('game_achievements', {});
-  // Cover URL
-  const coverUrl = g.coverUrl || coversCache[g.title] || '';
-  // Build achievements list HTML
-  const buildAchList = (achs) => achs.length ? achs.map(a => {
-    const rarityClass = a.rarity || (a.category === 'скрытое' ? 'hidden' : a.category === 'эпичное' ? 'epic' : a.category === 'редкое' ? 'rare' : 'common');
-    return `<div style="display:flex;gap:12px;padding:10px;background:var(--bg-input);border:1px solid var(--border);margin-bottom:6px;clip-path:var(--clip-cut-sm);align-items:flex-start">
-      <div style="width:40px;height:40px;background:${a.color||'var(--accent)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:6px">${a.iconUrl ? `<img src="${escapeHtml(a.iconUrl)}" style="width:40px;height:40px;border-radius:6px" onerror="this.style.display='none'">` : SVG(a.icon||'award',20)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <strong style="font-size:13px">${escapeHtml(a.name||'—')}</strong>
-          <span class="ach-rarity-badge ${rarityClass}">${escapeHtml((a.rarity||a.category||'common').toUpperCase())}</span>
-        </div>
-        <div class="text-xs text-muted mt-2">${escapeHtml(a.description || a.guide || '')}</div>
-        ${a.guide ? `<div class="text-xs mt-2" style="color:var(--accent)">${SVG('info',9)} ${escapeHtml(a.guide)}</div>` : ''}
-      </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteAch('${g.id}','${a.id}')">${SVG('trash',11)}</button>
-    </div>`;
-  }).join('') : '<div class="text-xs text-muted" style="padding:20px;text-align:center">Достижения недоступны. Добавьте вручную или попробуйте синхронизировать Steam.</div>';
-  const achListHtml = buildAchList(achievements);
-  const body = `<div style="display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap">
-      ${coverUrl ? `<img src="${escapeHtml(coverUrl)}" style="width:200px;height:95px;object-fit:cover;border-radius:8px;border:1px solid var(--border)" onerror="this.style.display='none'">` : `<div style="width:200px;height:95px;display:flex;align-items:center;justify-content:center;background:var(--bg-input);border:1px solid var(--border);border-radius:8px">${SVG('gamepad',36)}</div>`}
-      <div style="flex:1;min-width:0">
-        <div style="font-size:18px;font-weight:700;font-family:'Montserrat',sans-serif">${escapeHtml(g.title)}</div>
-        <div class="text-xs text-muted mt-2">
-          <span class="tag accent">${escapeHtml(g.platform||'manual')}</span>
-          <span class="tag" style="margin-left:4px">${({playing:'Играю',completed:'Пройдено',planned:'В планах',dropped:'Брошено'})[g.status]||g.status||'—'}</span>
-          ${g.addedFrom ? `<span class="tag" style="margin-left:4px;color:#FFD600;border-color:#FFD600">${g.addedFrom==='preset'?'PRESET':'manual'}</span>` : ''}
-        </div>
-        <div class="text-xs text-muted mt-2">
-          ${SVG('clock',11)} Часов: ${g.hours||0} · 
-          ${g.lastPlayed ? SVG('calendar',11)+' '+g.lastPlayed : 'не играл'}
-        </div>
-        ${g.appid ? `<div class="text-xs text-muted mt-2 mono">appid: ${escapeHtml(String(g.appid))}</div>` : ''}
-      </div>
-    </div>
-    <div class="form-row"><label class="form-label">Достижения</label></div>
-    <div id="ach-list" style="max-height:280px;overflow-y:auto">${achListHtml}</div>
-    ${g.appid ? `<button class="btn btn-sm btn-2 mt-2" id="fetch-steam-ach-btn" onclick="fetchSteamAchievements('${g.id}', ${g.appid||0})">${SVG('download',11)} Загрузить из Steam Schema API</button>` : ''}
-    <div class="form-row mt-3"><label class="form-label">Добавить достижение вручную</label></div>
-    <div class="form-grid">
-      <div class="form-row"><input class="form-input" id="ach-name" placeholder="Название достижения"></div>
-      <div class="form-row"><select class="form-select" id="ach-cat"><option value="обычное">Обычное</option><option value="редкое">Редкое</option><option value="эпичное">Эпическое</option><option value="скрытое">Скрытое</option><option value="легендарное">Легендарное</option></select></div>
-    </div>
-    <div class="form-row"><textarea class="form-textarea" id="ach-guide" placeholder="Краткий мини-гайд: как получить достижение (1-3 предложения)"></textarea></div>`;
-  openModal(`<div class="modal-header"><div class="modal-title">${SVG('award',14)} Достижения — ${escapeHtml(g.title)}</div><button class="modal-close" onclick="closeModal()">${SVG('x',14)}</button></div><div class="modal-body">${body}</div><div class="modal-footer"><button class="btn" onclick="closeModal()">Закрыть</button><button class="btn btn-primary" onclick="addAch('${g.id}')">${SVG('plus',14)} Добавить достижение</button></div>`, 'lg');
-}
-async function fetchSteamAchievements(gameId, appid){
-  if (!appid) { toast('Нет Steam appid для этой игры','warning'); return; }
-  toast('Загрузка достижений из Steam Schema API...','info');
-  const apiKey = getApiConfig('steam').apiKey || 'DE297FC4E0305721FF3772595AD8A827';
-  const url = `https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key=${apiKey}&appid=${appid}`;
-  const proxies = [
-    u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
-    u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
-    u => 'https://thingproxy.freeboard.io/fetch/' + u
-  ];
-  for (let i = 0; i < proxies.length; i++){
-    try {
-      const r = await fetch(proxies[i](url), { signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined });
-      if (!r.ok) continue;
-      const data = await r.json();
-      const list = data?.game?.availableGameStats?.achievements;
-      if (list && list.length){
-        const cache = Store.get('game_achievements', {});
-        cache[appid] = list;
-        Store.set('game_achievements', cache);
-        // Merge into game's achievements array (skip duplicates by name)
-        const games = Store.get('games', []);
-        const gi = games.findIndex(x => x.id === gameId);
-        if (gi >= 0){
-          const existing = games[gi].achievements || [];
-          const existingNames = new Set(existing.map(a => a.name));
-          list.forEach(a => {
-            if (!existingNames.has(a.displayName)){
-              existing.push({
-                id: uid(),
-                name: a.displayName,
-                description: a.description || '',
-                guide: '',
-                icon: 'award',
-                iconUrl: a.icon || '',
-                rarity: 'common',
-                category: 'обычное'
-              });
-            }
-          });
-          games[gi].achievements = existing;
-          Store.set('games', games);
-        }
-        toast('Получено достижений: ' + list.length,'success');
-        closeModal();
-        showAchievements(gameId);
-        return;
-      }
-    } catch(e){ console.warn('proxy ' + i + ' failed:', e.message); }
-  }
-  toast('Steam Schema API недоступен. Добавьте достижения вручную.','error');
-}
-function addAch(gameId){
-  const arr = Store.get('games',[]);
-  const i = arr.findIndex(x=>x.id===gameId);
-  if (i<0) return;
-  arr[i].achievements = arr[i].achievements || [];
-  const cat = document.getElementById('ach-cat').value;
-  const rarityMap = { 'обычное':'common', 'редкое':'rare', 'эпичное':'epic', 'скрытое':'hidden', 'легендарное':'legendary' };
-  arr[i].achievements.push({ id: uid(), name: document.getElementById('ach-name').value.trim(), category: cat, rarity: rarityMap[cat]||'common', guide: document.getElementById('ach-guide').value.trim(), description: document.getElementById('ach-guide').value.trim(), icon: 'award', color: 'var(--accent)' });
-  Store.set('games',arr);
-  toast('Достижение добавлено','success');
-  closeModal();
-  showAchievements(gameId);
-}
-function deleteAch(gameId, achId){
-  const arr = Store.get('games',[]);
-  const i = arr.findIndex(x=>x.id===gameId);
-  if (i<0) return;
-  arr[i].achievements = (arr[i].achievements||[]).filter(a => a.id !== achId);
-  Store.set('games',arr);
-  toast('Достижение удалено','error');
-  closeModal();
-  showAchievements(gameId);
-}
-
 
 async function openBookmarkForm(id){
   const b = id ? Store.get('bookmarks',[]).find(x=>x.id===id) : null;
@@ -10186,6 +10104,56 @@ function deletePresetGames(){
     toast('Удалено ' + presetCount + ' предустановленных игр','warning');
     refreshTab('games');
   };
+}
+// v6.1.0: фолбэк обложки — битая картинка заменяется на заглушку с иконкой геймпада
+function gameCoverFallback(img){
+  if (!img || img.dataset.fallbackDone) return;
+  img.dataset.fallbackDone = '1';
+  const ph = document.createElement('div');
+  ph.className = 'game-cover game-cover-ph';
+  if (img.dataset.gameId) ph.dataset.gameId = img.dataset.gameId;
+  ph.innerHTML = SVG('gamepad',34);
+  img.replaceWith(ph);
+}
+// v6.1.0: удаление ВСЕХ игр из библиотеки (кнопка «Удалить все игры»)
+function deleteAllGames(){
+  const games = Store.get('games', []);
+  if (!games.length){ toast('Библиотека уже пуста','info'); return; }
+  openModal(`<div class="modal-header"><div class="modal-title">${SVG('trash',14)} Удалить все игры</div><button class="modal-close" onclick="closeModal()">${SVG('x',14)}</button></div>
+  <div class="modal-body">
+    <div class="warning-banner" style="margin-bottom:16px">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <div style="color:var(--warning);flex-shrink:0">${SVG('alert',22)}</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:6px">Удалить ВСЕ игры (${games.length}) из библиотеки?</div>
+          <div class="text-sm">Будут удалены все игры — синхронизированные (Steam/Xbox/GFN), добавленные вручную и импортированные. Прогресс достижений обнулится. Это действие НЕОБРАТИМО.</div>
+        </div>
+      </div>
+    </div>
+    <div class="text-xs text-muted">Подсказка: после удаления библиотеку можно восстановить кнопкой «Восстановить недостающие из встроенного списка» в панели синхронизации или заново синхронизировать Steam/Xbox.</div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn" onclick="closeModal()">Отмена</button>
+    <button class="btn btn-danger" id="confirm-del-all">${SVG('trash',14)} Удалить все ${games.length}</button>
+  </div>`);
+  document.getElementById('confirm-del-all').onclick = () => {
+    Store.set('games', []);
+    Store.set('game_ach_summary', {});
+    closeModal();
+    window.__gPlatform = 'all';
+    toast('Библиотека очищена: удалено игр — ' + games.length,'warning');
+    refreshTab('games');
+  };
+}
+// v6.1.0: ручное редактирование статуса прохождения игры (выпадающий список в окне достижений)
+function setGameStatus(gameId, status){
+  const arr = Store.get('games', []);
+  const i = arr.findIndex(x => x.id === gameId);
+  if (i < 0) return;
+  arr[i].status = status;
+  Store.set('games', arr);
+  toast('Статус: ' + (({playing:'Играю',completed:'Пройдено',planned:'В планах',dropped:'Брошено'})[status]||status), 'success');
+  refreshTab('games');
 }
 // Lazy-load game cover from Steam Store API (called per-game-card on first view)
 async function fetchGameCover(title){
@@ -12265,7 +12233,7 @@ function makeRichText(element, options){
 function getApiConfig(platform){
   const defaults = {
     steam:   { apiKey: 'DE297FC4E0305721FF3772595AD8A827', steamId: '76561199226918877', connected: false, nickname: '', profileId: '' },
-    xbox:    { clientId: '45ff85a2-0874-43d7-b896-cf1b3af2e593', clientSecret: 'Uyy8Q~cZWGg-yuTSgdDo5qI~ttCfIbfUSBIHhaJZ', refreshToken: '', connected: false, nickname: '', via: 'oauth' },
+    xbox:    { clientId: '45ff85a2-0874-43d7-b896-cf1b3af2e593', clientSecret: '9sY8Q~Nb~XjpXyjx7RvnelV-cPRtfWBZlDCfba-E', refreshToken: '', connected: false, nickname: '', via: 'oauth' },
     epic:    { username: '', displayName: '', libraryJson: '', connected: false },
     gog:     { username: '', libraryJson: '', connected: false },
     battle:  { region: 'EU', accountName: '', connected: false },
@@ -12366,11 +12334,11 @@ function importLibraryJson(platform, event){
   event.target.value = '';
 }
 function connectXbox(){
-  const cfg = getApiConfig('xbox');
-  const redirectUri = encodeURIComponent(window.location.origin + window.location.pathname);
-  const authUrl = `https://login.live.com/oauth20_authorize.srf?client_id=${encodeURIComponent(cfg.clientId||'6a8158ee-7929-474b-9fbe-8e4dacadaed9')}&response_type=code&redirect_uri=${redirectUri}&scope=XboxLive.signin%20offline_access`;
-  window.open(authUrl, '_blank');
-  toast('OAuth URL открыт в новой вкладке. После авторизации скопируйте код из URL.','info');
+  // v6.0.2: старая клиентская OAuth-ссылка (login.live.com + redirect_uri = адрес трекера)
+  // вызывала ошибку Microsoft «redirect_uri is not valid» — этот URI не зарегистрирован
+  // в Azure. Правильный вход — только через серверное приложение Azure:
+  // делегируем кнопкам «Подключить» серверный вход xboxLogin().
+  return xboxLogin();
 }
 function disconnectPlatform(platform){
   const cfg = getApiConfig(platform);
@@ -13068,6 +13036,14 @@ function saveFinanceCategoryBudget(name, value){
   else delete budgets[name];
   Store.set('finance_budgets', budgets);
   toast('Бюджет для "' + name + '" обновлён', 'success');
+  refreshTab('finance');
+}
+// v6.1.0: общий месячный бюджет — сохранение из вкладки «Финансы»
+function saveMonthlyBudget(){
+  const el = document.getElementById('mb-input');
+  const v = el ? (parseFloat(el.value) || 0) : 0;
+  Store.set('finance_monthly_budget', v);
+  toast(v > 0 ? 'Месячный бюджет установлен: ' + v.toLocaleString('ru-RU') + ' ₴' : 'Месячный бюджет сброшен', 'success');
   refreshTab('finance');
 }
 // v5.4 Fix #2: enhanced form — name + type + palette picker + icon picker + default budget.
@@ -14031,6 +14007,7 @@ function resetGamesDisplay(){
   if (!confirm('Сбросить отображение вкладки «Игры»?\n\nБудут сброшены: фильтр, сортировка, кэш панелей Steam Live и хронологии.\nСами игры НЕ удаляются.')) return;
   window.__gFilter = 'all';
   window.__gSort = 'recent';
+  window.__gPlatform = 'all'; // v6.1.0
   Object.keys(window).forEach(k => {
     if (k.indexOf('__gamesChrono') === 0){ try { delete window[k]; } catch(e){} }
   });
@@ -14777,9 +14754,25 @@ async function achServerFetch(pathName){
 }
 
 /* ---------- Xbox OAuth: вход / выход / статус / синхронизация ---------- */
-function xboxLogin(){
-  const base = achServerBase();
+async function xboxLogin(){
+  const base = normalizeServerUrl(achServerBase());
   if (!base){ toast('Укажите URL Render-сервера (Настройки → Сервер синхронизации) или откройте трекер с самого сервера', 'error'); return; }
+  // v6.0.2: проверяем ДО редиректа, что на сервере стоит свежий server.js (3.1.1+),
+  // иначе старый сервер (например 2.1.0) не знает маршрут /api/xbox/login
+  // и пользователь попадает на битую страницу Microsoft
+  toast('Проверка сервера перед входом...', 'info');
+  try {
+    const h = await serverFetchJson('/api/health', { timeoutMs: 45000 });
+    const parts = String(h.version || '0').split('.').map(n => parseInt(n, 10) || 0);
+    const fresh = (parts[0] || 0) > 3 || ((parts[0] || 0) === 3 && ((parts[1] || 0) > 1 || ((parts[1] || 0) === 1 && (parts[2] || 0) >= 1)));
+    if (!fresh){
+      toast('Сервер устарел (v' + (h.version || '?') + ', нужен 3.1.1+): на Render лежит старый server.js без входа через Xbox. Обновите файл server.js на Render (замените в GitHub-репозитории → авто-деплой или Manual Deploy) и повторите вход.', 'error');
+      return;
+    }
+  } catch(e){
+    toast('Сервер недоступен — вход невозможен. ' + (e.message || ''), 'error');
+    return;
+  }
   toast('Перенаправление на вход Microsoft/Xbox...', 'info');
   setTimeout(() => { window.location.href = base + '/api/xbox/login'; }, 350);
 }
@@ -14827,15 +14820,16 @@ async function xboxSyncGames(){
 
 /* ---------- кэши достижений ---------- */
 function achListCacheGet(key){
-  const c = Store.get('game_achievements_v6', {});
+  // v6.1.0: ключ хранилища сменён (v7ru) — старые кэши с англ. достижениями не читаются
+  const c = Store.get('game_achievements_v7ru', {});
   const e = c[key];
   if (e && e.list && Date.now() - (e.ts || 0) < 6 * 3600 * 1000) return e;
   return null;
 }
 function achListCacheSet(key, list, extra){
-  const c = Store.get('game_achievements_v6', {});
+  const c = Store.get('game_achievements_v7ru', {});
   c[key] = Object.assign({ ts: Date.now(), list: list }, extra || {});
-  Store.set('game_achievements_v6', c);
+  Store.set('game_achievements_v7ru', c);
 }
 function achSummarySet(gameId, list){
   const unlocked = list.filter(a => a.achieved).length;
@@ -14917,9 +14911,14 @@ async function showAchievements(id){
       ${g.coverUrl ? `<img src="${escapeHtml(g.coverUrl)}" style="width:200px;height:95px;object-fit:cover;border-radius:8px;border:1px solid var(--border)" onerror="this.style.display='none'">` : `<div style="width:200px;height:95px;display:flex;align-items:center;justify-content:center;background:var(--bg-input);border:1px solid var(--border);border-radius:8px">${SVG('gamepad',36)}</div>`}
       <div style="flex:1;min-width:0">
         <div style="font-size:18px;font-weight:700;font-family:'Montserrat',sans-serif">${escapeHtml(g.title)}</div>
-        <div class="text-xs text-muted mt-2">
+        <div class="text-xs text-muted mt-2" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <span class="tag accent">${escapeHtml(g.platform||'manual')}</span>
-          <span class="tag" style="margin-left:4px">${({playing:'Играю',completed:'Пройдено',planned:'В планах',dropped:'Брошено'})[g.status]||g.status||'—'}</span>
+          <select class="form-select" style="width:auto;padding:2px 6px;font-size:11px" onchange="setGameStatus('${g.id}', this.value)" title="Статус прохождения — можно менять вручную (v6.1.0)">
+            <option value="planned" ${g.status==='planned'?'selected':''}>В планах</option>
+            <option value="playing" ${g.status==='playing'?'selected':''}>Играю</option>
+            <option value="completed" ${g.status==='completed'?'selected':''}>Пройдено</option>
+            <option value="dropped" ${g.status==='dropped'?'selected':''}>Брошено</option>
+          </select>
           ${g.titleId ? `<span class="tag" style="margin-left:4px;color:#9BE84C;border-color:#9BE84C">Xbox titleId</span>` : ''}
           ${g.appid ? `<span class="tag mono" style="margin-left:4px">appid: ${escapeHtml(String(g.appid))}</span>` : ''}
         </div>
@@ -14927,14 +14926,8 @@ async function showAchievements(id){
       </div>
     </div>
     <div id="ach-status" class="text-xs text-muted mb-2">Синхронизация достижений...</div>
-    <div id="ach-list" style="max-height:330px;overflow-y:auto"><div class="text-xs text-muted" style="padding:14px;text-align:center">Загрузка...</div></div>
-    <div class="form-row mt-3"><label class="form-label">Добавить достижение вручную</label></div>
-    <div class="form-grid">
-      <div class="form-row"><input class="form-input" id="ach-name" placeholder="Название достижения"></div>
-      <div class="form-row"><select class="form-select" id="ach-cat"><option value="обычное">Обычное</option><option value="редкое">Редкое</option><option value="эпичное">Эпическое</option><option value="скрытое">Скрытое</option><option value="легендарное">Легендарное</option></select></div>
-    </div>
-    <div class="form-row"><textarea class="form-textarea" id="ach-guide" placeholder="Краткий мини-гайд: как получить достижение (1-3 предложения)"></textarea></div>`;
-  openModal(`<div class="modal-header"><div class="modal-title">${SVG('award',14)} Достижения — ${escapeHtml(g.title)}</div><button class="modal-close" onclick="closeModal()">${SVG('x',14)}</button></div><div class="modal-body">${body}</div><div class="modal-footer"><button class="btn" onclick="closeModal()">Закрыть</button><button class="btn" onclick="reloadAchModal(true)" title="Обновить достижения с аккаунта">${SVG('refresh',12)} Синхронизировать</button><button class="btn" onclick="loadAllGuidesForGame()" title="Мини-гайды из гайдов Steam по игре для всех достижений">📖 Мини-гайды</button><button class="btn btn-primary" onclick="addAch('${g.id}')">${SVG('plus',14)} Добавить</button></div>`, 'lg');
+    <div id="ach-list" style="max-height:330px;overflow-y:auto"><div class="text-xs text-muted" style="padding:14px;text-align:center">Загрузка...</div></div>`;
+  openModal(`<div class="modal-header"><div class="modal-title">${SVG('award',14)} Достижения — ${escapeHtml(g.title)}</div><button class="modal-close" onclick="closeModal()">${SVG('x',14)}</button></div><div class="modal-body">${body}</div><div class="modal-footer"><button class="btn" onclick="closeModal()">Закрыть</button><button class="btn" onclick="reloadAchModal(true)" title="Обновить достижения с аккаунта">${SVG('refresh',12)} Синхронизировать</button><button class="btn" onclick="loadAllGuidesForGame()" title="Мини-гайды из гайдов Steam по игре для всех достижений">📖 Мини-гайды</button></div>`, 'lg');
   reloadAchModal(false);
 }
 async function reloadAchModal(force){
@@ -15013,20 +15006,13 @@ function achCardHtml(a, i){
 function renderAchList(st, manual){
   const listEl = document.getElementById('ach-list');
   if (!listEl) return;
-  const manualHtml = manual.length ? '<div class="text-xs text-muted mt-2 mb-2">Сохранённые вручную достижения (' + manual.length + ')</div>' + manual.map(a => `<div style="display:flex;gap:12px;padding:10px;background:var(--bg-input);border:1px solid var(--border);margin-bottom:6px;border-radius:8px;align-items:flex-start">
-      <div style="width:40px;height:40px;background:${a.color||'var(--accent)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:6px">${a.iconUrl ? `<img src="${escapeHtml(a.iconUrl)}" style="width:40px;height:40px;border-radius:6px" onerror="this.style.display='none'">` : SVG(a.icon||'award',20)}</div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong style="font-size:13px">${escapeHtml(a.name||'—')}</strong><span class="ach-rarity-badge common">${escapeHtml(a.category||'обычное').toUpperCase()}</span></div>
-        <div class="text-xs text-muted mt-2">${escapeHtml(a.description || a.guide || '')}</div>
-      </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteAch('${st.gameId}','${a.id}')">${SVG('trash',11)}</button>
-    </div>`).join('') : '';
+  // v6.1.0: ручные достижения больше не поддерживаются — показываем только синхронизированный список
   const liveHtml = st.list.length
     ? '<div class="text-xs text-muted mb-2">Слева иконка · справа название, описание и мини-гайд. Кнопка 📖 подтягивает мини-гайд из гайдов Steam по игре.</div>' + st.list.map((a, i) => achCardHtml(a, i)).join('')
     : '';
-  listEl.innerHTML = liveHtml + manualHtml;
-  if (!st.list.length && !manual.length){
-    listEl.innerHTML = '<div class="text-xs text-muted" style="padding:20px;text-align:center">Достижения не загружены. Нажмите «Синхронизировать» или добавьте вручную.</div>';
+  listEl.innerHTML = liveHtml;
+  if (!st.list.length){
+    listEl.innerHTML = '<div class="text-xs text-muted" style="padding:20px;text-align:center">Достижения не загружены. Нажмите «Синхронизировать» — список придёт с аккаунта Steam/Xbox (на русском).</div>';
   }
 }
 function renderGuideInto(i, gd){

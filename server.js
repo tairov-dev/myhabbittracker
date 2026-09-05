@@ -57,7 +57,7 @@ const crypto = require('crypto');
 const PORT     = process.env.PORT || 3000;
 const ROOT     = __dirname;
 const API_KEY  = process.env.RENDER_API_KEY || ''; // необязательная защита
-const VERSION  = '3.1.8';
+const VERSION  = '3.1.9';
 
 const XBOX_CLIENT_ID     = process.env.XBOX_CLIENT_ID     || '45ff85a2-0874-43d7-b896-cf1b3af2e593';
 /* v3.1.1: секрет «myhabbittrackerxbox» (ID 8b26845b-3e38-4492-ba4d-8c4779569247) —
@@ -338,14 +338,25 @@ function steamRarity(percent) {
   return 'legendary';
 }
 
+/* v3.1.9: Steam Web API требует ПОЛНОЕ имя языка (l=russian), а не ISO-код (l=ru) —
+   с l=ru API МОЛЧА возвращает английские строки (проверено на appid 1091500:
+   l=ru → "The Fool", l=russian → "Шут"). Мапим коды в полные имена. */
+const STEAM_LANG_NAMES = { ru: 'russian', en: 'english', uk: 'ukrainian', de: 'german', fr: 'french', es: 'spanish', pl: 'polish', pt: 'brazilian', zh: 'schinese', ko: 'koreana', ja: 'japanese', it: 'italian', tr: 'turkish', cs: 'czech' };
+function steamLangName(l) {
+  const s = String(l || 'ru').trim().toLowerCase();
+  if (STEAM_LANG_NAMES[s]) return STEAM_LANG_NAMES[s];
+  return (s.length <= 3 ? 'russian' : s); // неизвестный короткий код → русский по умолчанию
+}
+
 async function steamAchievements(appid, key, steamId, lang) {
-  const schema = await httpsGetJson('https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key=' + encodeURIComponent(key) + '&appid=' + encodeURIComponent(appid) + '&l=' + encodeURIComponent(lang || 'ru'), 15000);
+  const langName = steamLangName(lang); // v3.1.9: ru → russian, иначе достижения приходят на английском
+  const schema = await httpsGetJson('https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key=' + encodeURIComponent(key) + '&appid=' + encodeURIComponent(appid) + '&l=' + encodeURIComponent(langName), 15000);
   const sa = (schema && schema.game && schema.game.availableGameStats && schema.game.availableGameStats.achievements) || [];
   let player = null;
   let playerErr = '';
   if (steamId) {
     try {
-      player = await httpsGetJson('https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?key=' + encodeURIComponent(key) + '&steamid=' + encodeURIComponent(steamId) + '&appid=' + encodeURIComponent(appid) + '&l=' + encodeURIComponent(lang || 'ru'), 15000);
+      player = await httpsGetJson('https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?key=' + encodeURIComponent(key) + '&steamid=' + encodeURIComponent(steamId) + '&appid=' + encodeURIComponent(appid) + '&l=' + encodeURIComponent(langName), 15000);
       if (player && player.playerstats && player.playerstats.error) { playerErr = player.playerstats.error; player = null; }
     } catch (e) { playerErr = e.message; player = null; }
   }
