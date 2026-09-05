@@ -38,7 +38,7 @@
  *
  *  ВАЖНО (Azure Portal → Приложение → Authentication):
  *  добавьте Redirect URI типа Web:
- *    https://myhabbittracker-t76t.onrender.com/api/xbox/callback
+ *    https://ваш-сервис.onrender.com/api/xbox/callback
  *  и локально http://localhost:3000/api/xbox/callback
  *
  *  Локальный запуск:  node server.js
@@ -57,10 +57,13 @@ const crypto = require('crypto');
 const PORT     = process.env.PORT || 3000;
 const ROOT     = __dirname;
 const API_KEY  = process.env.RENDER_API_KEY || ''; // необязательная защита
-const VERSION  = '3.1.0';
+const VERSION  = '3.1.3';
 
 const XBOX_CLIENT_ID     = process.env.XBOX_CLIENT_ID     || '45ff85a2-0874-43d7-b896-cf1b3af2e593';
-const XBOX_CLIENT_SECRET = process.env.XBOX_CLIENT_SECRET || 'Uyy8Q~cZWGg-yuTSgdDo5qI~ttCfIbfUSBIHhaJZ';
+/* v3.1.1: секрет «myhabbittrackerxbox» (ID 8b26845b-3e38-4492-ba4d-8c4779569247) —
+   актуальный Value из Azure (старый «xboxgamepchabbittracekr» заменён пользователем) */
+const XBOX_CLIENT_SECRET = process.env.XBOX_CLIENT_SECRET || '9sY8Q~Nb~XjpXyjx7RvnelV-cPRtfWBZlDCfba-E';
+/* v3.1.1: redirect URI зафиксирован явно — точное совпадение с Azure Portal */
 const XBOX_REDIRECT_URI  = process.env.XBOX_REDIRECT_URI  || 'https://myhabbittracker-t76t.onrender.com/api/xbox/callback';
 const STEAM_API_KEY      = process.env.STEAM_API_KEY      || 'DE297FC4E0305721FF3772595AD8A827';
 const STEAM_ID           = process.env.STEAM_ID           || '76561199226918877';
@@ -246,7 +249,10 @@ async function xstsToken(userToken) {
     throw new Error(xstsErrMessage(r.json && r.json.XErr));
   }
   const xui = r.json.DisplayClaims && r.json.DisplayClaims.xui && r.json.DisplayClaims.xui[0];
-  return { token: r.json.Token, uhs: (xui && xui.uhs) || '' };
+  /* v3.1.3: xid из DisplayClaims — НАСТОЯЩИЙ XUID аккаунта. Раньше брали только
+     uhs (User Hash) — при недоступности profile-запроса xuid подменялся uhs,
+     и titlehub отвечал 404 на несуществующий xuid. */
+  return { token: r.json.Token, uhs: (xui && xui.uhs) || '', xid: (xui && xui.xid) || '' };
 }
 
 async function xblGet(t, urlStr, contractVersion) {
@@ -264,7 +270,12 @@ async function xblGet(t, urlStr, contractVersion) {
     throw new Error('Xbox Live отклонил токен (HTTP ' + r.status + ') — выполните повторный вход через Xbox');
   }
   let json = null; try { json = JSON.parse(r.text); } catch (e) {}
-  if (r.status !== 200 || !json) throw new Error('Xbox Live: HTTP ' + r.status + (json && json.message ? ' · ' + json.message : ''));
+  if (r.status !== 200 || !json) {
+    /* v3.1.3: диагностика — в ошибку попадает фрагмент тела ответа Xbox Live */
+    let extra = json ? String(json.message || json.statusCode || json.reason || '') : '';
+    if (!extra && r.text) extra = String(r.text).slice(0, 120);
+    throw new Error('Xbox Live: HTTP ' + r.status + (extra ? ' · ' + extra : ''));
+  }
   return json;
 }
 
@@ -301,6 +312,7 @@ async function xboxEnsureTokens(force) {
     const x = await xstsToken(u);
     t.xstsToken = x.token;
     t.uhs = x.uhs;
+    if (x.xid) t.xuid = x.xid; /* v3.1.3: настоящий XUID из токена XSTS */
     t.xstsExpiresAt = Date.now() + 8 * 3600 * 1000; // XSTS живёт ~24ч, обновляем каждые 8ч
     writeXboxTokens(t);
     try { await xboxFetchProfile(t); writeXboxTokens(t); } catch (e) { console.warn('xbox profile failed:', e.message); }
@@ -561,7 +573,19 @@ async function handleApi(req, res, urlPath, query) {
     const oauthErr = query.get('error_description') || query.get('error') || '';
     const back = (ok, msg) => send(res, 302, { 'Location': '/?xbox=' + encodeURIComponent(ok ? 'connected' : String(msg || 'error')), 'Cache-Control': 'no-store' }, 'Redirect');
     if (oauthErr) return back(false, oauthErr.slice(0, 160));
-    if (!code) return back(false, 'Microsoft не вернул code — начните вход заново');
+    if (!code) {
+      /* v3.1.2: диагностика «Microsoft не вернул code».
+         Если пришёл ПУСТОЙ набор параметров — почти наверняка редирект вернулся
+         в #fragment (хэше), который сервер не видит: так происходит, когда в Azure
+         Portal redirect URI добавлен в блоке «Single-page application» (SPA)
+         вместо «Web». Фикс на стороне пользователя: удалить URI из SPA и добавить
+         в блок Web. Если параметры есть, но кода нет — покажем их список. */
+      const keys = Array.from(query.keys());
+      const seen = keys.length
+        ? ('пришли параметры: ' + keys.map(function (k) { return k + '=' + String(query.get(k) || '').slice(0, 60); }).join(' & '))
+        : 'параметров не было вовсе — редирект вернулся в #fragment: в Azure redirect URI стоит в блоке «Single-page application», удалите его и добавьте в блоке «Web»';
+      return back(false, 'Microsoft не вернул code (' + seen + ') — начните вход заново');
+    }
     if (!oauthStates.has(state)) return back(false, 'state не совпадает — начните вход заново');
     oauthStates.delete(state);
     try {
@@ -586,7 +610,7 @@ async function handleApi(req, res, urlPath, query) {
       writeXboxTokens(t);
       const u = await xblUserToken(t.msAccessToken);
       const x = await xstsToken(u);
-      t.xstsToken = x.token; t.uhs = x.uhs; t.xstsExpiresAt = Date.now() + 8 * 3600 * 1000;
+      t.xstsToken = x.token; t.uhs = x.uhs; if (x.xid) t.xuid = x.xid; t.xstsExpiresAt = Date.now() + 8 * 3600 * 1000;
       writeXboxTokens(t);
       try { await xboxFetchProfile(t); writeXboxTokens(t); } catch (e) { console.warn('profile:', e.message); }
       console.log('[xbox] подключён аккаунт:', t.gamertag || t.xuid || '?');
@@ -620,7 +644,15 @@ async function handleApi(req, res, urlPath, query) {
       const t = await xboxEnsureTokens(false);
       const xuid = xboxXuid(t);
       if (!xuid) throw new Error('Не определён XUID — повторите вход');
-      const d = await xblGet(t, 'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/detail?maxItems=1000&decoration=All');
+      const d = await (async () => {
+        /* v3.1.3: при 404 на старом формате пробуем актуальный titlehub decoration */
+        try {
+          return await xblGet(t, 'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/detail?maxItems=1000&decoration=All');
+        } catch (e1) {
+          if (!/HTTP 404/.test(String(e1.message || ''))) throw e1;
+          return await xblGet(t, 'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/titlehub/decoration/detail?maxItems=1000');
+        }
+      })();
       const titles = (d.titles || [])
         .filter(x => String(x.type || '').toLowerCase() === 'game' && x.name)
         .map(x => ({
