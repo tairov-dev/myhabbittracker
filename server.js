@@ -57,7 +57,7 @@ const crypto = require('crypto');
 const PORT     = process.env.PORT || 3000;
 const ROOT     = __dirname;
 const API_KEY  = process.env.RENDER_API_KEY || ''; // необязательная защита
-const VERSION  = '3.1.5';
+const VERSION  = '3.1.6';
 
 const XBOX_CLIENT_ID     = process.env.XBOX_CLIENT_ID     || '45ff85a2-0874-43d7-b896-cf1b3af2e593';
 /* v3.1.1: секрет «myhabbittrackerxbox» (ID 8b26845b-3e38-4492-ba4d-8c4779569247) —
@@ -646,12 +646,16 @@ async function handleApi(req, res, urlPath, query) {
       const probes = [
         ['profile me',                 'https://profile.xboxlive.com/users/me/profile/settings?settings=Gamertag', '2'],
         ['profile xuid',               'https://profile.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/profile/settings?settings=Gamertag', '2'],
+        ['profile uhs',                'https://profile.xboxlive.com/users/xuid(' + encodeURIComponent(String(t.uhs || '')) + ')/profile/settings?settings=Gamertag', '2'],
+        ['th uhs deco',                'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(String(t.uhs || '')) + ')/titles/titlehub/decoration/detail?max_items=25', '2'],
+        ['th uhs legacy',              'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(String(t.uhs || '')) + ')/titles/detail?maxItems=25&decoration=All', '2'],
         ['th me deco max_items',       'https://titlehub.xboxlive.com/users/me/titles/titlehub/decoration/detail?max_items=25', '2'],
         ['th me deco maxItems',        'https://titlehub.xboxlive.com/users/me/titles/titlehub/decoration/detail?maxItems=25', '2'],
         ['th me deco cv1',             'https://titlehub.xboxlive.com/users/me/titles/titlehub/decoration/detail?max_items=25', '1'],
         ['th me legacy',               'https://titlehub.xboxlive.com/users/me/titles/detail?maxItems=25&decoration=All', '2'],
         ['th xuid deco max_items',     'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/titlehub/decoration/detail?max_items=25', '2'],
-        ['th xuid legacy',             'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/detail?maxItems=25&decoration=All', '2']
+        ['th xuid legacy',             'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/detail?maxItems=25&decoration=All', '2'],
+        ['ach me',                     'https://achievements.xboxlive.com/users/me/achievements?maxItems=5', '2']
       ];
       const out = [];
       for (const [label, url, cv] of probes) {
@@ -672,7 +676,7 @@ async function handleApi(req, res, urlPath, query) {
           out.push({ probe: label, cv: cv, status: 'ERR', body: String(e.message || '').slice(0, 160) });
         }
       }
-      sendJson(res, 200, { xuid: xuid, uhs_len: String(t.uhs || '').length, xsts_len: String(t.xstsToken || '').length, probes: out });
+      sendJson(res, 200, { xuid: xuid, uhs: String(t.uhs || ''), uhs_len: String(t.uhs || '').length, xsts_len: String(t.xstsToken || '').length, probes: out });
     } catch (e) {
       sendJson(res, e.code === 'no_auth' ? 401 : 502, { error: e.message });
     }
@@ -688,11 +692,19 @@ async function handleApi(req, res, urlPath, query) {
          (2) users/xuid + decoration, (3) легаси /titles/detail */
       const xuid = xboxXuid(t);
       if (!xuid) throw new Error('Не определён XUID — повторите вход');
-      const thUrls = [
-        'https://titlehub.xboxlive.com/users/me/titles/titlehub/decoration/detail?maxItems=200',
-        'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/titlehub/decoration/detail?maxItems=200',
-        'https://titlehub.xboxlive.com/users/xuid(' + encodeURIComponent(xuid) + ')/titles/detail?maxItems=1000&decoration=All'
-      ];
+      const uhs = String(t.uhs || '');
+      /* v3.1.6: у аккаунта Microsoft ДВА формата xuid — новый (2535…) и старый
+         (2814…, он же uhs в XSTS-токене). titlehub сверяет моникер с токеном,
+         поэтому пробуем оба формата + me, сначала на актуальном пути decoration */
+      const mk = (id, path) => 'https://titlehub.xboxlive.com/users/' + id + '/' + path;
+      const thUrls = [];
+      if (uhs) {
+        thUrls.push(mk('xuid(' + encodeURIComponent(uhs) + ')', 'titles/titlehub/decoration/detail?max_items=200'));
+        thUrls.push(mk('xuid(' + encodeURIComponent(uhs) + ')', 'titles/detail?maxItems=1000&decoration=All'));
+      }
+      thUrls.push(mk('xuid(' + encodeURIComponent(xuid) + ')', 'titles/titlehub/decoration/detail?max_items=200'));
+      thUrls.push(mk('me', 'titles/titlehub/decoration/detail?max_items=200'));
+      thUrls.push(mk('xuid(' + encodeURIComponent(xuid) + ')', 'titles/detail?maxItems=1000&decoration=All'));
       let d = null, lastErr = null;
       for (const thUrl of thUrls) {
         try { d = await xblGet(t, thUrl); break; }
@@ -711,7 +723,7 @@ async function handleApi(req, res, urlPath, query) {
           lastTimePlayed: x.lastTimePlayed || '',
           devices: Array.isArray(x.devices) ? x.devices.join(', ') : ''
         }));
-      sendJson(res, 200, { titles: titles, gamertag: t.gamertag || '', total: titles.length, via: 'xboxlive-oauth' });
+      sendJson(res, 200, { titles: titles, gamertag: t.gamertag || '', xuid: xuid, total: titles.length, via: 'xboxlive-oauth' });
     } catch (e) {
       sendJson(res, e.code === 'no_auth' ? 401 : 502, { error: e.message });
     }
