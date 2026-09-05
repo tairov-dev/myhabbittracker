@@ -57,7 +57,7 @@ const crypto = require('crypto');
 const PORT     = process.env.PORT || 3000;
 const ROOT     = __dirname;
 const API_KEY  = process.env.RENDER_API_KEY || ''; // необязательная защита
-const VERSION  = '3.1.7';
+const VERSION  = '3.1.8';
 
 const XBOX_CLIENT_ID     = process.env.XBOX_CLIENT_ID     || '45ff85a2-0874-43d7-b896-cf1b3af2e593';
 /* v3.1.1: секрет «myhabbittrackerxbox» (ID 8b26845b-3e38-4492-ba4d-8c4779569247) —
@@ -690,23 +690,25 @@ async function handleApi(req, res, urlPath, query) {
          (2) users/xuid + decoration, (3) легаси /titles/detail */
       const xuid = xboxXuid(t);
       if (!xuid) throw new Error('Не определён XUID — повторите вход');
-      /* v3.1.7: перебираем комбинации authId (uhs/xuid) × моникер (xuid/me) × путь —
-         рабочая комбинация у каждого аккаунта своя */
+      /* v3.1.8: xid-авторизация НЕВАЛИДНА (debug: 401) — только uhs.
+         Свежий формат пути (2025): /titles/titleHistory/decoration/… (из поста Reddit).
+         Старый /titles/titlehub/decoration/ даёт 400 Moniker not valid. */
       const enc = encodeURIComponent;
       const mk = (id, path) => 'https://titlehub.xboxlive.com/users/' + id + '/' + path;
-      const authIds = [t.uhs, t.xuid].filter(Boolean);
       const combos = [];
-      for (const a of authIds) {
-        combos.push({ auth: a, url: mk('xuid(' + enc(xuid) + ')', 'titles/titlehub/decoration/detail?max_items=200') });
-        combos.push({ auth: a, url: mk('me', 'titles/titlehub/decoration/detail?max_items=200') });
-        combos.push({ auth: a, url: mk('xuid(' + enc(xuid) + ')', 'titles/detail?maxItems=1000&decoration=All') });
+      if (t.uhs) {
+        combos.push({ auth: t.uhs, url: mk('xuid(' + enc(xuid) + ')', 'titles/titleHistory/decoration/detail,titleHistory?max_items=200') });
+        combos.push({ auth: t.uhs, url: mk('xuid(' + enc(xuid) + ')', 'titles/titleHistory/decoration/detail?max_items=200') });
+        combos.push({ auth: t.uhs, url: mk('xuid(' + enc(xuid) + ')', 'titles/titlehub/decoration/detail?max_items=200') });
+        combos.push({ auth: t.uhs, url: mk('me', 'titles/titleHistory/decoration/detail,titleHistory?max_items=200') });
+        combos.push({ auth: t.uhs, url: mk('xuid(' + enc(xuid) + ')', 'titles/detail?maxItems=1000&decoration=All') });
       }
       let d = null, lastErr = null;
       for (const c of combos) {
         try { d = await xblGet(t, c.url, '2', c.auth); if (d) break; }
         catch (thE) {
           lastErr = thE;
-          if (!/HTTP 400|HTTP 404|HTTP 403/.test(String(thE.message || ''))) throw thE;
+          if (!/HTTP 400|HTTP 401|HTTP 403|HTTP 404/.test(String(thE.message || ''))) throw thE;
         }
       }
       if (!d) throw (lastErr || new Error('titlehub недоступен'));
@@ -716,7 +718,7 @@ async function handleApi(req, res, urlPath, query) {
           titleId: x.titleId || 0,
           name: x.name,
           displayImage: x.displayImage || '',
-          lastTimePlayed: x.lastTimePlayed || '',
+          lastTimePlayed: x.lastTimePlayed || (x.titleHistory && x.titleHistory.lastTimePlayed) || '',
           devices: Array.isArray(x.devices) ? x.devices.join(', ') : ''
         }));
       sendJson(res, 200, { titles: titles, gamertag: t.gamertag || '', xuid: xuid, total: titles.length, via: 'xboxlive-oauth' });
@@ -736,9 +738,10 @@ async function handleApi(req, res, urlPath, query) {
       const enc2 = encodeURIComponent;
       const xuidA = xboxXuid(t);
       const aUrls = [];
-      for (const a of [t.uhs, t.xuid].filter(Boolean)) {
-        aUrls.push({ auth: a, url: 'https://achievements.xboxlive.com/users/xuid(' + enc2(xuidA) + ')/achievements?titleId=' + enc2(titleId) + '&maxItems=200' });
-        aUrls.push({ auth: a, url: 'https://achievements.xboxlive.com/users/me/achievements?titleId=' + enc2(titleId) + '&maxItems=200' });
+      /* v3.1.8: только uhs-авторизация (xid-auth даёт 401), xuid-моникер работает (debug: 200) */
+      if (t.uhs) {
+        aUrls.push({ auth: t.uhs, url: 'https://achievements.xboxlive.com/users/xuid(' + enc2(xuidA) + ')/achievements?titleId=' + enc2(titleId) + '&maxItems=200' });
+        aUrls.push({ auth: t.uhs, url: 'https://achievements.xboxlive.com/users/me/achievements?titleId=' + enc2(titleId) + '&maxItems=200' });
       }
       let d = null, lastAErr = null;
       for (const c of aUrls) {
