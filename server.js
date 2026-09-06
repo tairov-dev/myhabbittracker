@@ -57,7 +57,7 @@ const crypto = require('crypto');
 const PORT     = process.env.PORT || 3000;
 const ROOT     = __dirname;
 const API_KEY  = process.env.RENDER_API_KEY || ''; // необязательная защита
-const VERSION  = '3.1.9';
+const VERSION  = '3.2.0';
 
 const XBOX_CLIENT_ID     = process.env.XBOX_CLIENT_ID     || '45ff85a2-0874-43d7-b896-cf1b3af2e593';
 /* v3.1.1: секрет «myhabbittrackerxbox» (ID 8b26845b-3e38-4492-ba4d-8c4779569247) —
@@ -735,6 +735,49 @@ async function handleApi(req, res, urlPath, query) {
       sendJson(res, 200, { titles: titles, gamertag: t.gamertag || '', xuid: xuid, total: titles.length, via: 'xboxlive-oauth' });
     } catch (e) {
       sendJson(res, e.code === 'no_auth' ? 401 : 502, { error: e.message });
+    }
+    return;
+  }
+
+  /* ---------- метаданные страницы (v3.2.0: drag&drop закладок — заголовок/описание/картинка) ---------- */
+  if (urlPath === '/api/bookmark-meta') {
+    const target = query.get('url') || '';
+    let u = null;
+    try { u = new URL(target); } catch (e) { u = null; }
+    if (!u || !/^https?:$/.test(u.protocol)) { sendJson(res, 400, { error: 'Нужен корректный http(s) URL' }); return; }
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 8000);
+      const r = await fetch(u.href, {
+        signal: ctrl.signal,
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; DisciplineTracker/3.2; +bookmark-meta)',
+          'Accept': 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5',
+          'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8'
+        }
+      });
+      clearTimeout(to);
+      const ctype = r.headers.get('content-type') || '';
+      if (!r.ok || !/text\/html|application\/xhtml/i.test(ctype)) {
+        sendJson(res, 200, { ok: false, title: '', description: '', image: '', note: 'not html or http ' + r.status });
+        return;
+      }
+      const raw = (await r.text()).slice(0, 400000);
+      const pick = (re) => { const m = re.exec(raw); return m ? m[1].replace(/\s+/g, ' ').trim().slice(0, 300) : ''; };
+      const decode = (s) => String(s || '')
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&nbsp;/g, ' ');
+      const title = decode(pick(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i))
+        || decode(pick(/<meta[^>]+name=["']twitter:title["'][^>]+content=["']([^"']+)["']/i))
+        || decode(pick(/<title[^>]*>([^<]*)<\/title>/i));
+      const description = decode(pick(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i))
+        || decode(pick(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i));
+      let image = pick(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+      if (image && !/^https?:/i.test(image)) { try { image = new URL(image, u.href).href; } catch (e) { image = ''; } }
+      sendJson(res, 200, { ok: true, title, description, image, url: u.href });
+    } catch (e) {
+      sendJson(res, 200, { ok: false, title: '', description: '', image: '', error: String((e && e.message) || e) });
     }
     return;
   }

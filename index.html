@@ -960,6 +960,9 @@ a:hover{text-decoration:underline}
 .diary-content h3{font-size:16px;margin:12px 0 6px;color:var(--accent-2)}
 .diary-content ul,.diary-content ol{padding-left:24px;margin:8px 0}
 .diary-content img{max-width:100%;border-radius:8px;margin:8px 0}
+/* v6.2.0 Req #4: rich-описание в вылазках */
+.outing-editor{min-height:140px;max-height:340px;overflow-y:auto}
+.outing-rich{line-height:1.6}.outing-rich img{max-width:100%;border-radius:8px}.outing-rich a{color:var(--accent)}.outing-rich h2{font-size:17px;margin:10px 0 6px;color:var(--accent)}.outing-rich h3{font-size:15px;margin:8px 0 5px;color:var(--accent-2)}.outing-rich ul,.outing-rich ol{padding-left:22px;margin:6px 0}.outing-rich blockquote{border-left:3px solid var(--accent);margin:8px 0;padding:4px 12px;color:var(--text-muted)}
 .code-block{background:var(--bg-input)!important;border:1px solid var(--border);border-radius:8px;padding:12px;font-family:'JetBrains Mono',Consolas,monospace;font-size:12px;overflow-x:auto;margin:8px 0}
 
 /* v5.7 Req #6: mindmap CSS removed */
@@ -1098,7 +1101,7 @@ a:hover{text-decoration:underline}
   <div class="app-content-wrap">
   <header class="header">
     <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()" title="Меню" aria-label="Toggle sidebar"><span></span><span></span><span></span></button>
-    <div class="logo"><span class="logo-dot"></span>DISCIPLINE.TRACKER <span class="mono" style="font-size:9px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:1px 5px;vertical-align:middle">v6.1.0</span></div>
+    <div class="logo"><span class="logo-dot"></span>DISCIPLINE.TRACKER <span class="mono" style="font-size:9px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:1px 5px;vertical-align:middle">v6.2.0</span></div>
     <div class="header-stats">
       <span class="stat-lvl">LVL <span id="user-lvl">1</span></span>
       <div class="xp-bar"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
@@ -3398,6 +3401,16 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 function applyTheme(theme){
   document.documentElement.setAttribute('data-theme', theme);
   Store.rawSet('theme', theme);
+  // v6.2.0 Req #6: фон и текст всегда следуют теме — ручное редактирование фона удалено,
+  // поэтому светлая тема больше не перекрывается тёмным фоном из theme_colors
+  try {
+    const c = Store.get('theme_colors', null);
+    if (c && typeof c === 'object'){
+      c.background = theme === 'light' ? '#f5f7fa' : '#0F111A';
+      c.text = theme === 'light' ? '#1a1d29' : '#e4e7ec';
+      Store.set('theme_colors', c);
+    }
+  } catch(e){}
   const btn = document.getElementById('theme-btn');
   if (btn) btn.innerHTML = theme === 'light' ? SVG('sun') : SVG('moon');
   // v5.6 Fix #9: re-apply theme colors so text color default updates with theme (if not user-set).
@@ -3441,6 +3454,8 @@ function closeModal(){
   const bd = document.getElementById('modal-backdrop');
   const m = document.getElementById('modal');
   bd.classList.remove('open');
+  // v6.2.0: сброс активного rich-редактора на дневник
+  window.__rteTarget = 'diary-content';
   // v5.7 Req #9 BUGFIX: wipe the modal ONLY if it was not re-opened during the
   // 200 ms fade-out. Previously, switching type (расход/доход) in the finance
   // category form did closeModal()+openFinanceCategoryForm() synchronously —
@@ -6186,7 +6201,7 @@ function(){
           <div class="text-xs text-muted mt-2 mono">${dist.toFixed(2)} км · ${timeMin} мин</div>
         </div>
       </div>
-      ${o.description?`<div class="text-sm mt-2">${escapeHtml(o.description)}</div>`:''}
+      ${o.description_html ? `<div class="text-sm mt-2 outing-rich">${o.description_html}</div>` : (o.description ? `<div class="text-sm mt-2">${escapeHtml(o.description)}</div>` : '')}
       <div id="mini-map-${o.id}" class="outing-map mt-2" data-wps='${JSON.stringify(wps)}' data-geom='${geomAttr}'></div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn btn-sm" onclick="editOuting('${o.id}')">${SVG('edit',11)}</button>
@@ -6309,7 +6324,7 @@ function(){
       <button class="btn btn-2" onclick="resetGamesDisplay()" title="Сбросить отображение: фильтры, сортировка, кэш панелей. Игры не удаляются">${SVG('rotate-cw' in ICONS_LIB ? 'rotate-cw' : 'refresh',14)} Сброс отображения</button>
     </div>
   </div>
-  ${renderGamesChronology(games)}
+  ${renderGamesRecent(games)}
   ${renderSteamLivePanel()}
   ${renderGfnPanel()}
   ${renderGamesSyncPanel()}
@@ -6390,7 +6405,7 @@ function(){
   const catOpts = ['all', ...BM_CATS, ...BM_SUBCATS.map(s=>s[0])].map(c => `<option value="${c}" ${cat===c?'selected':''}>${c==='all'?'Все':c}</option>`).join('');
   return `<div class="panel-header">
     <div><div class="panel-title">${SVG('bookmark',24)} <span class="accent">Закладки</span></div>
-    <div class="panel-subtitle">${bms.length} закладок</div></div>
+    <div class="panel-subtitle">${bms.length} закладок · v6.2.0 — перетащите ссылку, категория определится сама</div></div>
     <button class="btn btn-primary" onclick="openBookmarkForm()">${SVG('plus',14)} Добавить</button>
   </div>
   <div class="card mb-4">
@@ -6407,7 +6422,14 @@ function(){
       </select>
     </div>
   </div>
-  <div class="card-grid cols-3">${grid}</div>`;
+  <div id="bm-dropzone" class="card mb-4" style="border:2px dashed var(--border-bright);padding:16px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s" ondragover="bmDragOver(event)" ondragleave="bmDragLeave(event)" ondrop="bmDrop(event)" onclick="openBookmarkForm()" title="Перетащите ссылку из браузера — или кликните для обычной формы">
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap">
+      ${SVG('download',18)}
+      <strong class="text-sm">Перетащите ссылку сюда</strong>
+      <span class="text-xs text-muted">— закладка добавится сама, категория и подкатегория определятся по сайту и названию. Клик — обычная форма.</span>
+    </div>
+  </div>
+  <div class="card-grid cols-3" ondragover="bmDragOver(event)" ondragleave="bmDragLeave(event)" ondrop="bmDrop(event)">${grid}</div>`;
 }
 ,
   'production': 
@@ -6622,7 +6644,7 @@ function(){
   <div class="card mb-4">
     <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span style="display:flex;align-items:center;gap:6px"><span class="dot"></span>Месячный бюджет</span>
       <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <input type="number" class="form-input" id="mb-input" style="width:130px;padding:6px 10px" min="0" step="100" value="${monthlyBudget||''}" placeholder="Лимит ₴" title="Введите месячный лимит расходов и нажмите «Сохранить»">
+        <input type="number" class="form-input" id="mb-input" style="width:130px;padding:6px 10px" min="0" step="100" value="${monthlyBudget||''}" placeholder="Лимит ₴" title="Общий месячный лимит: введите сумму и нажмите «Сохранить». Очистите поле и сохраните — лимит сбросится.">
         <button class="btn btn-primary btn-sm" onclick="saveMonthlyBudget()" title="Сохранить месячный бюджет (v6.1.0)">${SVG('check',12)} Сохранить</button>
       </span>
     </div>
@@ -7040,8 +7062,8 @@ function(){
     ${meta.website ? `<div class="contact-item">${SVG('globe',14)} <a href="${escapeHtml(meta.website)}" target="_blank" rel="noopener">${escapeHtml(meta.website)}</a></div>` : ''}
   `;
   return `<div class="panel-header">
-    <div><div class="panel-title">${SVG('user',24)} <span class="accent">Профиль — Резюме</span></div>
-    <div class="panel-subtitle">Профессиональное интерактивное резюме · редактируемое · печать · экспорт JSON</div></div>
+    <div><div class="panel-title">${SVG('user',24)} <span class="accent">Профиль</span></div>
+    <div class="panel-subtitle">Личный профиль · статистика · достижения · v6.2.0</div></div>
     <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary ripple-btn" onclick="enterProfileEdit()">${SVG('edit',14)} Редактировать</button>
       <button class="btn ripple-btn" onclick="printProfileResume()">${SVG('download',14)} Печать резюме</button>
@@ -7055,8 +7077,6 @@ function(){
         <div class="profile-avatar" style="width:120px;height:120px;flex-shrink:0">${avatarHtml}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:28px;font-weight:700;font-family:'Montserrat','Inter',sans-serif">${escapeHtml(meta.name||'—')}</div>
-          <div style="font-size:16px;color:var(--accent);margin-top:2px">${escapeHtml(meta.title||'')}</div>
-          <div class="text-sm text-muted mt-2">${escapeHtml(meta.tagline||'')}</div>
           ${contactHtml ? `<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px">${contactHtml}</div>` : ''}
           ${socialIconsHtml ? `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${socialIconsHtml}</div>` : ''}
         </div>
@@ -7076,14 +7096,6 @@ function(){
       <div class="resume-summary">${escapeHtml(meta.summary || 'Краткое описание ещё не заполнено. Нажмите «Изменить» чтобы добавить профессиональное summary.')}</div>
     </div>
     <div class="card">
-      <div class="section-title no-print"><span class="dot"></span>Опыт работы <button class="btn btn-sm btn-primary ml-2" onclick="editProfileExperience()">${SVG('plus',11)} Добавить</button></div>
-      <div class="resume-section">${experienceHtml}</div>
-    </div>
-    <div class="card">
-      <div class="section-title no-print"><span class="dot"></span>Образование <button class="btn btn-sm btn-primary ml-2" onclick="editProfileEducation()">${SVG('plus',11)} Добавить</button></div>
-      <div class="resume-section">${educationHtml}</div>
-    </div>
-    <div class="card">
       <div class="section-title no-print"><span class="dot"></span>Навыки <button class="btn btn-sm btn-primary ml-2" onclick="editProfileCustomSkill()">${SVG('plus',11)} Добавить навык</button></div>
       <div class="resume-section">
         <div class="text-xs text-muted mb-2" style="text-transform:uppercase;letter-spacing:0.06em">Пассивные навыки (${skills.length})</div>
@@ -7095,21 +7107,6 @@ function(){
     <div class="card">
       <div class="section-title no-print"><span class="dot"></span>Последние достижения <button class="btn btn-sm btn-ghost ml-2" onclick="switchTab('achievements')">${SVG('arrow-right',11)} Все достижения →</button></div>
       <div class="resume-section">${recentAchHtml}</div>
-    </div>
-    <div class="card no-print">
-      <div class="section-title"><span class="dot"></span>Снаряжение и инвентарь (RPG)</div>
-      <div class="rpg-equipment-row">${equipmentHtml}</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-        <div class="text-xs text-muted">
-          Всего: <span class="mono" style="color:var(--accent)">${inventory.length}</span> · 
-          <span style="color:#9ca3af">Common ${rarityCounts.common}</span> ·
-          <span style="color:var(--accent)">Rare ${rarityCounts.rare}</span> ·
-          <span style="color:var(--accent-2)">Epic ${rarityCounts.epic}</span> ·
-          <span style="color:#FFD700">Legendary ${rarityCounts.legendary}</span>
-        </div>
-        <button class="btn btn-sm btn-primary" onclick="openItemForm()">${SVG('plus',11)} Добавить предмет</button>
-      </div>
-      <div class="inv-grid">${invSlotsHtml}</div>
     </div>
   </div>`;
 }
@@ -7232,6 +7229,7 @@ function(){
   const colors = Store.get('theme_colors', { accent: '#00D9FF', accent2: '#9D4EDD', background: '#0F111A', text: '#e4e7ec' });
   const backups = Store.get('backups_history', []);
   const autoBackup = Store.get('auto_backup', false);
+  const curTheme = document.documentElement.getAttribute('data-theme') || Store.raw('theme', '"dark"').replace(/"/g, '') || 'dark';
   // Folder picker support check
   const fsApiSupported = typeof window.showDirectoryPicker === 'function';
   // Backups list
@@ -7326,6 +7324,15 @@ function(){
       ${gfxSettingsHtml()}
     </div>
     <div class="card">
+      <div class="section-title"><span class="dot"></span>🌗 Тема оформления (день / ночь)</div>
+      <p class="text-sm text-muted mb-3">Ночная и дневная темы. Акцентные цвета сохраняются, фон и текст подстраиваются автоматически. Кнопка луны/солнца есть и в верхней панели.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn ${curTheme==='dark'?'btn-primary':''}" onclick="applyTheme('dark')">${SVG('moon',14)} Ночная тема</button>
+        <button class="btn ${curTheme==='light'?'btn-primary':''}" onclick="applyTheme('light')">${SVG('sun',14)} Дневная тема</button>
+        <span class="text-xs text-muted mono">Активна: ${curTheme==='light'?'дневная':'ночная'}</span>
+      </div>
+    </div>
+    <div class="card">
       <div class="section-title"><span class="dot"></span>Палитра интерфейса</div>
       <div class="settings-palette-grid">
         <div class="settings-color-block">
@@ -7347,16 +7354,6 @@ function(){
             <span class="mono text-xs text-muted" id="settings-accent2-hex">${escapeHtml(colors.accent2.toUpperCase())}</span>
           </div>
           <button class="btn btn-sm mt-2" onclick="pickThemeColor('accent2')">${SVG('palette',12)} Палитра</button>
-        </div>
-        <div class="settings-color-block">
-          <div class="form-label">🌐 Цвет фона (background)</div>
-          <div class="text-xs text-muted mb-2">Базовый фон интерфейса. Автоматически выводятся варианты для карточек/инпутов/elevated. НЕ влияет на цвет текста.</div>
-          <div class="settings-color-preview" id="settings-background-preview" style="background:${escapeHtml(colors.background||'#0F111A')};border:1px solid var(--border-bright)"></div>
-          <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-            <input type="color" id="settings-background" value="${escapeHtml(colors.background||'#0F111A')}" oninput="setThemeColorLive('background',this.value)" onchange="setThemeColor('background',this.value)">
-            <span class="mono text-xs text-muted" id="settings-background-hex">${escapeHtml((colors.background||'#0F111A').toUpperCase())}</span>
-          </div>
-          <button class="btn btn-sm mt-2" onclick="pickThemeColor('background')">${SVG('palette',12)} Палитра</button>
         </div>
         <div class="settings-color-block">
           <div class="form-label">✏️ Цвет текста</div>
@@ -7387,7 +7384,7 @@ function(){
         <div class="mt-2" style="height:8px;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--accent-2));box-shadow:0 0 8px var(--accent-glow)"></div>
         <div class="text-xs text-muted mt-1">Прогресс-бар использует оба акцента на фоне <span class="mono">${escapeHtml((colors.background||'#0F111A').toUpperCase())}</span></div>
       </div>
-      <button class="btn btn-danger btn-sm mt-3" onclick="resetThemeColors()">${SVG('refresh',12)} Сбросить к defaults (#00D9FF + #9D4EDD + #0F111A + #e4e7ec)</button>
+      <button class="btn btn-danger btn-sm mt-3" onclick="resetThemeColors()">${SVG('refresh',12)} Сбросить акценты к defaults (#00D9FF + #9D4EDD)</button>
     </div>
     <div class="card">
       <div class="section-title"><span class="dot"></span>Экспорт / Импорт настроек</div>
@@ -8935,6 +8932,14 @@ function haversine(lat1, lon1, lat2, lon2){
   const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
+function rteInsertImageByUrl(){
+  const el = rteEl(); if (!el) return;
+  const url = prompt('URL изображения:');
+  if (!url) return;
+  el.focus();
+  try { document.execCommand('insertHTML', false, '<img src="' + escapeHtml(url) + '" style="max-width:100%;border-radius:8px;margin:8px 0">'); } catch(e){}
+  rteSave();
+}
 function openOutingForm(id){
   const o = id ? Store.get('outings',[]).find(x=>x.id===id) : null;
   const body = `<div class="form-row"><label class="form-label">Название</label><input class="form-input" id="f-title" value="${escapeHtml(o?.title||'')}" placeholder="Центр города"></div>
@@ -8942,7 +8947,22 @@ function openOutingForm(id){
       <div class="form-row"><label class="form-label">Дата</label><input type="date" class="form-input" id="f-date" value="${o?.date||isoDate(new Date())}"></div>
       <div class="form-row"><label class="form-label">Локация</label><input class="form-input" id="f-loc" value="${escapeHtml(o?.location||'')}" placeholder="Главная площадь"></div>
     </div>
-    <div class="form-row"><label class="form-label">Описание</label><textarea class="form-textarea" id="f-desc">${escapeHtml(o?.description||'')}</textarea></div>
+    <div class="form-row"><label class="form-label">Описание (rich-редактор, как в Дневнике)</label>
+      <div class="diary-toolbar">
+        <button class="btn btn-sm" onclick="diaryExec('bold')" title="Жирный (Ctrl+B)">${SVG('bold',14)}</button>
+        <button class="btn btn-sm" onclick="diaryExec('italic')" title="Курсив (Ctrl+I)">${SVG('italic',14)}</button>
+        <button class="btn btn-sm" onclick="diaryExec('strikeThrough')" title="Зачеркнутый">${SVG('strike',14)}</button>
+        <button class="btn btn-sm" onclick="diaryLink()" title="Ссылка">${SVG('link',14)}</button>
+        <button class="btn btn-sm" onclick="diaryHeading('h2')" title="Заголовок 2">${SVG('heading',14)} H2</button>
+        <button class="btn btn-sm" onclick="diaryHeading('h3')" title="Заголовок 3">${SVG('heading',14)} H3</button>
+        <button class="btn btn-sm" onclick="diaryExec('insertUnorderedList')" title="Маркированный список">${SVG('list-ul',14)}</button>
+        <button class="btn btn-sm" onclick="diaryExec('insertOrderedList')" title="Нумерованный список">${SVG('list-ol',14)}</button>
+        <button class="btn btn-sm" id="diary-forecolor-btn" onclick="diaryShowColorPicker('foreColor', this)" title="Цвет текста" style="position:relative;min-width:36px"><span style="display:inline-block;width:16px;height:16px;border-radius:3px;background:var(--text);vertical-align:middle;border:1px solid var(--border)"></span> A</button>
+        <button class="btn btn-sm" id="diary-hilitecolor-btn" onclick="diaryShowColorPicker('hiliteColor', this)" title="Цвет фона" style="position:relative;min-width:36px"><span style="display:inline-block;width:16px;height:16px;border-radius:3px;background:transparent;vertical-align:middle;border:1px solid var(--border);background-image:linear-gradient(45deg,rgba(255,255,255,0.1) 25%,transparent 25%,transparent 50%,rgba(255,255,255,0.1) 50%,rgba(255,255,255,0.1) 75%,transparent 75%);background-size:8px 8px"></span> H</button>
+        <button class="btn btn-sm" onclick="rteInsertImageByUrl()" title="Вставить изображение по URL">${SVG('image',14)}</button>
+      </div>
+      <div class="diary-content outing-editor" id="f-desc" contenteditable="true" data-placeholder="Опишите вылазку: что видели, что понравилось...">${o?.description_html || escapeHtml(o?.description||'')}</div>
+    </div>
     <div class="form-row"><label class="form-label">Фото (URL, через запятую)</label><input class="form-input" id="f-photos" value="${(o?.photos||[]).join(', ')}"></div>
     <div class="form-row"><label class="form-label">Оценка</label><div id="star-picker">${renderStars(o?.rating||4,5)}</div></div>
     <div class="form-row">
@@ -8963,17 +8983,23 @@ function openOutingForm(id){
     // v5.6 Fix #2: ensure wpIcons has same length as wps (default 'map-pin' for missing entries).
     while (wpIcons.length < wps.length) wpIcons.push('map-pin');
     const photos = document.getElementById('f-photos').value.split(',').map(s=>s.trim()).filter(Boolean);
+    // v6.2.0 Req #4: rich-описание — сохраняем и HTML, и plain-text фолбэк
+    const descEl = document.getElementById('f-desc');
+    const descHtml = descEl ? descEl.innerHTML : (o?.description_html || '');
+    const descText = descEl ? (descEl.innerText || descEl.textContent || '').replace(/\u00a0/g, ' ').trim() : (o?.description || '');
     // Bug #5 fix (v5.2): persist the road-following geometry that was computed by OSRM
     // during the form's lifetime so it can be restored on tab re-render / form reopen
     // (instead of chaotic straight lines between waypoints).
     const routeGeometry = window.__outingRouteGeometry || o?.routeGeometry || null;
     const routeDistance  = window.__outingRouteDistance  || o?.routeDistance  || null;
     const routeDuration  = window.__outingRouteDuration  || o?.routeDuration  || null;
-    const no = { id: id||uid(), title: document.getElementById('f-title').value.trim(), date: document.getElementById('f-date').value, location: document.getElementById('f-loc').value.trim(), description: document.getElementById('f-desc').value.trim(), photos, rating: parseInt(document.querySelector('#star-picker').getAttribute('data-stars'))||4, waypoints: wps, wpIcons, routeGeometry, routeDistance, routeDuration, createdAt: o?.createdAt||Date.now() };
+    const no = { id: id||uid(), title: document.getElementById('f-title').value.trim(), date: document.getElementById('f-date').value, location: document.getElementById('f-loc').value.trim(), description: descText, description_html: descHtml, photos, rating: parseInt(document.querySelector('#star-picker').getAttribute('data-stars'))||4, waypoints: wps, wpIcons, routeGeometry, routeDistance, routeDuration, createdAt: o?.createdAt||Date.now() };
     if(!no.title) throw new Error('Введите название');
     const arr = Store.get('outings',[]); if(id){const i=arr.findIndex(x=>x.id===id);arr[i]=no;} else arr.unshift(no);
     Store.set('outings',arr); addXP(8); toast('Вылазка сохранена','success'); refreshTab('outings');
   }, 'lg');
+  // v6.2.0 Req #4: тулбар редактора в форме вылазок работает с #f-desc
+  window.__rteTarget = 'f-desc';
   // init map for form
   window.__outingWps = (o?.waypoints||[]).slice();
   // v5.6 Fix #2: init per-waypoint icon array from saved outing (or default to 'map-pin' for all).
@@ -9652,7 +9678,7 @@ function mergeGamesIntoLibrary(games){
       appid: g.appid || g.appId || 0,
       titleId: g.titleId || 0,
       hours: g.hours || g.playtime_forever ? Math.round((g.playtime_forever || g.hours || 0) / 60) : 0,
-      lastPlayed: '',
+      lastPlayed: g.lastPlayed || '',
       status: 'planned',
       achievements: [],
       addedFrom: 'server-sync',
@@ -9945,6 +9971,117 @@ function bookmarkIconFileSelected(input){
     toast('Иконка загружена','success');
   };
   reader.readAsDataURL(file);
+}
+// ============================================================
+// v6.2.0 Req #7: ЗАКЛАДКИ — drag&drop ссылки + автоопределение категории.
+// Категория/подкатегория подбираются по домену и ключевым словам в названии
+// (для чего и о чём сайт). Метаданные (заголовок/описание) тянутся с сервера
+// (/api/bookmark-meta); при недоступности сервера — фолбэк на домен.
+// ============================================================
+function bmDragOver(e){
+  e.preventDefault();
+  try { e.dataTransfer.dropEffect = 'link'; } catch(err){}
+  const z = document.getElementById('bm-dropzone');
+  if (z){ z.style.borderColor = 'var(--accent)'; z.style.background = 'rgba(var(--accent-rgb),0.07)'; }
+}
+function bmDragLeave(e){
+  const z = document.getElementById('bm-dropzone');
+  if (z){ z.style.borderColor = 'var(--border-bright)'; z.style.background = ''; }
+}
+function bmDrop(e){
+  e.preventDefault();
+  bmDragLeave(e);
+  let url = '';
+  try { url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain') || ''; } catch(err){}
+  if (!url){
+    let html = '';
+    try { html = e.dataTransfer.getData('text/html') || ''; } catch(err){}
+    const m = /href\s*=\s*["\']([^"\']+)["\']/i.exec(html);
+    if (m) url = m[1];
+  }
+  url = (url || '').trim().split(/\s+/)[0] || '';
+  if (!url){ toast('Не удалось прочитать ссылку из перетаскиваемого объекта', 'warning'); return; }
+  if (!/^https?:\/\//i.test(url)){
+    if (/^[\w-]+(\.[\w-]+)+/.test(url)) url = 'https://' + url;
+    else { toast('Это не похоже на ссылку: ' + escapeHtml(url.slice(0, 60)), 'error'); return; }
+  }
+  bmAutoAddBookmark(url);
+}
+function bmAutoCategory(url, title){
+  let host = '';
+  try { host = new URL(url).hostname.replace(/^www\./, '').toLowerCase(); } catch(e){}
+  const t = ((title || '') + ' ' + url).toLowerCase();
+  const has = (words) => words.some(w => t.includes(w));
+  // YouTube — категория «Видео с Ютуба», подкатегория по тематике названия
+  if (/youtube\.com|youtu\.be/.test(host)){
+    let sub = 'Прочие видео';
+    if (has(['бит','beat','beats','басс','бас','808','fl studio','ableton','drum','сэмпл','sample'])) sub = 'Битмейкинг';
+    else if (has(['музык','music','написан','сочиня','аккорд','гитар'])) sub = 'Написание музыки';
+    else if (has(['код','программ','code','python','javascript','react','разработ','dev'])) sub = 'Программирование';
+    else if (has(['науч','science','физик','космос','space','биолог','истор'])) sub = 'Научпоп видео';
+    else if (has(['игр','game','геймплей','прохожден','летсплей','гайд'])) sub = 'Игровые видосы';
+    else if (has(['документальн','расследован','documentary'])) sub = 'Документалки и Расследования';
+    else if (has(['тру-крайм','true crime','преступлен','убийств'])) sub = 'Тру-крайм';
+    else if (has(['хоррор','horror','страшн','мистик'])) sub = 'Хорроры';
+    else if (has(['фильм','movie','кино','рецензи'])) sub = 'Обзоры фильмов';
+    else if (has(['монтаж','editing','premiere','davinci','after effects'])) sub = 'Монтаж видео';
+    else if (has(['выживан','survival','бушкрафт'])) sub = 'Выживание';
+    else if (has(['обзор','анбоксинг','unboxing','распаковк'])) sub = 'Обзоры и анбоксинги';
+    return { category: 'Видео с Ютуба', subCategory: sub };
+  }
+  if (/tiktok\.com|instagram\.com/.test(host)) return { category: 'Тикток и Инстаграм рилсы', subCategory: '' };
+  if (/t\.me$|telegram\.me$|^t\.me|^telegram\.me/.test(host)) return { category: 'Телеграм посты', subCategory: '' };
+  if (/github\.com|stackoverflow\.com|habr\.com|developer\.mozilla|npmjs\.com|w3schools\.com|freecodecamp/.test(host)) return { category: 'Полезные сайты', subCategory: 'Программирование' };
+  if (/splice\.com|loopmasters|native-instruments|bandcamp\.com|soundcloud\.com|reverbmachine|whippedcreamsounds|unison\.audio|musicradar/.test(host)) return { category: 'Полезные сайты', subCategory: 'Битмейкинг' };
+  if (/behance\.net|dribbble\.com|artstation\.com|coolors\.co|canva\.com|figma\.com/.test(host)) return { category: 'Полезные сайты', subCategory: 'Графический дизайн' };
+  if (/tryhackme\.com|hackthebox\.com|shodan\.io|haveibeenpwned\.com|krebsonsecurity\.com|bellingcat|hackerone/.test(host)) return { category: 'Полезные сайты', subCategory: 'Цифровая безопасность' };
+  if (/osintframework|intelx\.io|hunter\.io|pipl\.com|phoneinfoga/.test(host)) return { category: 'Полезные сайты', subCategory: 'OSINT' };
+  if (/unsplash\.com|pexels\.com|500px\.com|flickr\.com|pixabay\.com/.test(host)) return { category: 'Полезные сайты', subCategory: 'Фотографирование' };
+  if (/netflix\.com|kinopoisk|imdb\.com|letterboxd\.com/.test(host)) return { category: 'Полезные сайты', subCategory: 'Обзоры фильмов' };
+  if (/photopea\.com|lightroom|photoshop/.test(host)) return { category: 'Полезные сайты', subCategory: 'Обработка фотографий' };
+  if (/color\.adobe|coolors|colorhunt|palette/.test(host)) return { category: 'Полезные сайты', subCategory: 'Цветокорекция' };
+  // по ключевым словам в названии / URL — для чего и о чём сайт
+  if (has(['битмейкинг','beatmak','808','сэмпл','sample pack','drum kit','лупы'])) return { category: 'Полезные сайты', subCategory: 'Битмейкинг' };
+  if (has(['монтаж','видеоредактор','premiere','davinci'])) return { category: 'Полезные сайты', subCategory: 'Монтаж видео' };
+  if (has(['дизайн интерьера','interior'])) return { category: 'Полезные сайты', subCategory: 'Дизайн Интерьеров' };
+  if (has(['дизайн','design','логотип','баннер'])) return { category: 'Полезные сайты', subCategory: 'Графический дизайн' };
+  if (has(['фото','camera','объектив'])) return { category: 'Полезные сайты', subCategory: 'Фотографирование' };
+  if (has(['копирайт','текст','статья','copywriting'])) return { category: 'Полезные сайты', subCategory: 'Копирайтинг' };
+  if (has(['научпоп','science','наука'])) return { category: 'Полезные сайты', subCategory: 'Научпоп видео' };
+  if (has(['программ','код','code','dev','разработ'])) return { category: 'Полезные сайты', subCategory: 'Программирование' };
+  if (has(['вайбкодинг','vibe coding'])) return { category: 'Полезные сайты', subCategory: 'Вайбкодинг' };
+  if (has(['osint','расследован'])) return { category: 'Полезные сайты', subCategory: 'OSINT' };
+  if (has(['darknet','tor ','onion'])) return { category: 'Полезные сайты', subCategory: 'TOR/Darknet' };
+  if (has(['безопасность','security','хакер','hack','уязвимост'])) return { category: 'Полезные сайты', subCategory: 'Цифровая безопасность' };
+  if (has(['игр','game','стим','steam'])) return { category: 'Полезные сайты', subCategory: 'Игровые видосы' };
+  return { category: 'Полезные сайты', subCategory: '' };
+}
+async function bmAutoAddBookmark(url){
+  toast('Закладка: получаю данные страницы…', 'info');
+  let title = '', description = '', image = '', metaNote = '';
+  try {
+    const d = await serverFetchJson('/api/bookmark-meta?url=' + encodeURIComponent(url), { headers: achServerHeaders(), timeoutMs: 9000 });
+    title = (d && d.title) || '';
+    description = (d && d.description) || '';
+    image = (d && d.image) || '';
+    metaNote = 'метаданные: сервер';
+  } catch(e){ metaNote = 'сервер недоступен — категория по домену'; }
+  if (!title){
+    try { title = new URL(url).hostname.replace(/^www\./, ''); } catch(e){ title = url.slice(0, 80); }
+  }
+  const cat = bmAutoCategory(url, title);
+  const ytId = (typeof extractYouTubeId === 'function' && extractYouTubeId(url)) || '';
+  const arr = Store.get('bookmarks', []);
+  if (arr.find(b => (b.url || '') === url)){ toast('Эта ссылка уже есть в закладках', 'warning'); return; }
+  const nb = { id: uid(), url, title, description, category: cat.category, subCategory: cat.subCategory || '', notes: '', timestamps: [], image, ytId, iconUrl: '', iconData: '', createdAt: Date.now() };
+  arr.unshift(nb);
+  Store.set('bookmarks', arr);
+  addXP(3);
+  if (nb.ytId || /youtube\.com|youtu\.be/i.test(url)) addSkillXP('inspiration', 20, 'Закладка-видео (drag&drop)');
+  else addSkillXP('inspiration', 5, 'Закладка (drag&drop)');
+  checkAutoAchievements();
+  toast('Добавлено: «' + title.slice(0, 42) + (title.length > 42 ? '…' : '') + '» → ' + cat.category + (cat.subCategory ? ' / ' + cat.subCategory : '') + ' (' + metaNote + ')', 'success');
+  if (currentTab === 'bookmarks') refreshTab('bookmarks');
 }
 // v5.4 Fix #7: get best icon URL for a bookmark — priority chain:
 //   user-uploaded iconData > custom iconUrl > Google favicon > DuckDuckGo > /favicon.ico > null (SVG fallback).
@@ -11384,9 +11521,11 @@ function pickThemeColor(key){
 function resetThemeColors(){
   // v5.5 Req #5: also reset background color.
   // v5.6 Fix #9: also reset text color (4 colors total).
-  Store.set('theme_colors', { accent: '#00D9FF', accent2: '#9D4EDD', background: '#0F111A', text: '#e4e7ec' });
+  // v6.2.0 Req #6: фон/текст — по активной теме (ручное редактирование фона удалено)
+  const th = document.documentElement.getAttribute('data-theme') || 'dark';
+  Store.set('theme_colors', { accent: '#00D9FF', accent2: '#9D4EDD', background: th === 'light' ? '#f5f7fa' : '#0F111A', text: th === 'light' ? '#1a1d29' : '#e4e7ec' });
   applyThemeColors();
-  toast('Палитра сброшена к defaults (4 цвета)','success');
+  toast('Палитра сброшена к defaults (акценты)','success');
   refreshTab('settings');
 }
 
@@ -11928,23 +12067,34 @@ function duplicateDiaryEntry(id){
   refreshTab('diary');
   toast('Запись дублирована','success');
 }
+// v6.2.0 Req #4: активный rich-редактор — дневник ('diary-content') или вылазки ('f-desc').
+if (!window.__rteTarget) window.__rteTarget = 'diary-content';
+function rteEl(){
+  return document.getElementById(window.__rteTarget || 'diary-content') || document.getElementById('diary-content');
+}
+function rteSave(){
+  if ((window.__rteTarget || 'diary-content') === 'diary-content') debounceDiarySave();
+}
 function diaryExec(cmd){
-  document.getElementById('diary-content').focus();
+  const el = rteEl(); if (!el) return;
+  el.focus();
   document.execCommand(cmd, false, null);
-  debounceDiarySave();
+  rteSave();
 }
 function diaryLink(){
+  const el = rteEl(); if (!el) return;
   const url = prompt('URL ссылки:');
   if (url) {
-    document.getElementById('diary-content').focus();
+    el.focus();
     document.execCommand('createLink', false, url);
-    debounceDiarySave();
+    rteSave();
   }
 }
 function diaryHeading(tag){
-  document.getElementById('diary-content').focus();
+  const el = rteEl(); if (!el) return;
+  el.focus();
   document.execCommand('formatBlock', false, tag);
-  debounceDiarySave();
+  rteSave();
 }
 // Color picker dropdown for diary (uses PALETTE_FLAT library)
 function diaryShowColorPicker(cmd, btn){
@@ -11991,7 +12141,7 @@ function diaryShowColorPicker(cmd, btn){
 function diaryApplyColor(cmd, hex){
   const dd = document.getElementById('diary-color-dd');
   if (dd) dd.remove();
-  const content = document.getElementById('diary-content');
+  const content = rteEl();
   if (!content) return;
   content.focus();
   try { document.execCommand(cmd, false, hex); } catch(e){}
@@ -12002,7 +12152,7 @@ function diaryApplyColor(cmd, hex){
     const span = btn.querySelector('span');
     if (span && hex !== 'inherit') span.style.background = hex;
   }
-  debounceDiarySave();
+  rteSave();
 }
 function diaryEmbedMenu(){
   // Use a modal with buttons instead of prompt — gives nicer UX
@@ -12021,11 +12171,14 @@ function diaryEmbedMenu(){
   </div>`);
 }
 function diaryEmbedInsert(kind){
+  // v6.2.0: сохраняем активный редактор — closeModal() сбрасывает __rteTarget
+  const targetId = window.__rteTarget || 'diary-content';
   closeModal();
-  const content = document.getElementById('diary-content');
+  window.__rteTarget = targetId;
+  const content = rteEl();
   if (!content) return;
   content.focus();
-  const insertHTML = (html) => { document.execCommand('insertHTML', false, html); debounceDiarySave(); };
+  const insertHTML = (html) => { document.execCommand('insertHTML', false, html); rteSave(); };
   if (kind === 'image_upload'){
     const input = document.createElement('input');
     input.type = 'file'; input.accept = 'image/*';
@@ -12979,7 +13132,7 @@ function renderFinanceCategoryManager(catTotals, budgetKeys){
     const pct = (isExp && limit > 0) ? Math.min(200, (spent / limit) * 100) : 0;
     const barColor = pct >= 100 ? '#B71C1C' : pct >= 80 ? '#FF8800' : pct > 0 ? '#00E676' : 'transparent';
     const budgetInput = isExp
-      ? `<input type="number" class="form-input" style="width:100px;padding:4px 8px;font-size:11px" value="${limit||''}" placeholder="0" min="0" step="0.01" onchange="saveFinanceCategoryBudget('${escapeHtml(name)}', this.value)"/>`
+      ? `<input type="number" class="form-input" style="width:100px;padding:4px 8px;font-size:11px" value="${limit||''}" placeholder="0" min="0" step="0.01" onchange="saveFinanceCategoryBudget('${escapeHtml(name)}', this.value)" title="Месячный бюджет категории: введите сумму и кликните вне поля. Очистите поле и кликните — бюджет удалится"/>`
       : '<span class="text-xs text-muted">—</span>';
     const progress = (isExp && limit > 0)
       ? `<div style="height:4px;background:var(--bg-input);border-radius:2px;overflow:hidden;margin-top:4px"><div style="height:100%;width:${Math.min(100,pct)}%;background:${barColor};transition:width 0.5s"></div></div>`
@@ -13390,125 +13543,81 @@ function deleteMapMark(id){
 }
 
 // ============================================================
-// v5.7 Req #1a: GAMES — «Хронологическое заключение» (Game Year infographic)
-// Big era year + hours-by-year bar chart + anchor games + stats.
-// Year source: g.year (manual field) -> g.lastPlayed -> g.createdAt.
+// v6.2.0 Req #3: GAMES — «Последние запуски» вместо хронологии по годам.
+// Список последних запущенных игр (g.lastPlayed; если данных нет — последние
+// добавленные) + мини-статистика библиотеки с прогресс-баром достижений.
 // ============================================================
-function gameYearOf(g){
-  if (g.year && g.year > 1990 && g.year <= 2100) return g.year;
-  if (g.lastPlayed && /^\d{4}/.test(g.lastPlayed)) return parseInt(g.lastPlayed.slice(0, 4));
-  if (g.createdAt) return new Date(g.createdAt).getFullYear();
-  return new Date().getFullYear();
+function gamesAchTotals(){
+  const s = Store.get('game_ach_summary', {});
+  let unlocked = 0, total = 0;
+  Object.keys(s).forEach(k => { unlocked += (s[k].unlocked || 0); total += (s[k].total || 0); });
+  return { unlocked: unlocked, total: total };
 }
-function renderGamesChronology(games){
-  const withHours = games.filter(g => (g.hours || 0) > 0);
-  if (!withHours.length){
-    return '<div class="card mb-4 gy-panel"><div style="padding:22px;text-align:center" class="text-muted">' + SVG('gamepad', 36) + '<div class="mt-2">Добавьте игры с наигранными часами — здесь появится хронологическое заключение библиотеки.</div></div></div>';
+function renderGamesRecent(games){
+  const totalHours = games.reduce((s, g) => s + (g.hours || 0), 0);
+  const ach = gamesAchTotals();
+  const achPct = ach.total ? Math.round((ach.unlocked / ach.total) * 100) : 0;
+  const withLast = games.filter(g => g.lastPlayed && String(g.lastPlayed).trim())
+    .sort((a, b) => String(b.lastPlayed).localeCompare(String(a.lastPlayed)));
+  const isByPlay = withLast.length > 0;
+  const recent = isByPlay ? withLast.slice(0, 8)
+    : games.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
+  if (!recent.length){
+    return '<div class="card mb-4"><div style="padding:22px;text-align:center" class="text-muted">' + SVG('gamepad', 36) + '<div class="mt-2">Библиотека пуста — добавьте игры вручную или синхронизируйте Steam / Xbox.</div></div></div>';
   }
-  const curYear = new Date().getFullYear();
-  // hours by year
-  const byYear = {};
-  let totalHours = 0;
-  withHours.forEach(g => {
-    const y = gameYearOf(g);
-    byYear[y] = (byYear[y] || 0) + (g.hours || 0);
-    totalHours += (g.hours || 0);
-  });
-  const years = Object.keys(byYear).map(Number).sort((a,b) => a - b);
-  const minYear = Math.min(curYear - 15, years[0]);
-  const maxYear = Math.max(curYear, years[years.length - 1]);
-  const span = Math.min(24, maxYear - minYear + 1);
-  const range = [];
-  for (let y = minYear; y < minYear + span; y++) range.push(y);
-  // era = year with max hours
-  let eraYear = curYear, eraHours = 0;
-  range.forEach(y => { if ((byYear[y] || 0) > eraHours){ eraHours = byYear[y]; eraYear = y; } });
-  const yearsBehind = Math.max(0, curYear - eraYear);
-  const statusText = yearsBehind <= 1 ? 'АКТУАЛЬНАЯ ХРОНОФИКСАЦИЯ' : 'УСТОЙЧИВАЯ ХРОНОФИКСАЦИЯ';
-  const statusNote = yearsBehind <= 1 ? 'библиотека идёт в ногу со временем' : 'ядро игрового времени зафиксировано в прошлом';
-  const epochPct = totalHours ? Math.round(eraHours / totalHours * 100) : 0;
-  // center of gravity = weighted mean year
-  let wy = 0;
-  range.forEach(y => { wy += y * (byYear[y] || 0); });
-  const cog = totalHours ? (wy / totalHours) : curYear;
-  const cogStr = cog.toFixed(1).replace('.', ',').replace(/(\d)(\d{3}),/, '$1 $2,');
-  // anchors: top-5 by hours
-  const anchors = withHours.slice().sort((a,b) => (b.hours||0) - (a.hours||0)).slice(0, 5);
-  // bar chart geometry
-  const W = 760, H = 220, PADB = 26, PADT = 26;
-  const maxH = Math.max.apply(null, range.map(y => byYear[y] || 0)) || 1;
-  const bw = W / range.length;
-  let bars = '';
-  range.forEach((y, i) => {
-    const h = (byYear[y] || 0) / maxH * (H - PADB - PADT);
-    const x = i * bw + 2, w = bw - 4;
-    const yTop = H - PADB - h;
-    const isEra = y === eraYear;
-    bars += '<g><title>' + y + ' — ' + Math.round(byYear[y] || 0) + ' ч</title>'
-      + '<rect x="' + x + '" y="' + yTop + '" width="' + w + '" height="' + Math.max(2, h) + '" rx="2" fill="' + (isEra ? 'url(#gyGradEra)' : 'url(#gyGradBar)') + '" opacity="' + (isEra ? 1 : 0.75) + '"/>'
-      + (isEra ? '<rect x="' + (x - 1) + '" y="' + (yTop - 3) + '" width="' + (w + 2) + '" height="' + (Math.max(2, h) + 3) + '" rx="3" fill="none" stroke="#FFD54F" stroke-width="1.2"/>' : '')
-      + ((range.length <= 17 || i % 2 === 0) ? '<text x="' + (x + w/2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="9" fill="#8a8fa3" font-family="JetBrains Mono,monospace">' + y + '</text>' : '')
-      + '</g>';
-  });
-  const eraX = (range.indexOf(eraYear) + 0.5) * bw;
-  const chartSvg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block">'
-    + '<defs>'
-    + '<linearGradient id="gyGradBar" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#5a3a12"/><stop offset="1" stop-color="#c87d2a"/></linearGradient>'
-    + '<linearGradient id="gyGradEra" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#8a4d12"/><stop offset="1" stop-color="#ffb74d"/></linearGradient>'
-    + '</defs>'
-    + '<line x1="0" y1="' + (H - PADB) + '" x2="' + W + '" y2="' + (H - PADB) + '" stroke="rgba(255,255,255,0.12)"/>'
-    + bars
-    + '<g><rect x="' + (eraX - 24) + '" y="0" width="48" height="16" rx="4" fill="#FFB74D"/><text x="' + eraX + '" y="11" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1206" font-family="JetBrains Mono,monospace">' + eraYear + '</text></g>'
-    + '</svg>';
-  const anchorRows = anchors.map((g, i) => {
-    const y = gameYearOf(g);
+  const relDays = (iso) => {
+    try {
+      const s = String(iso);
+      const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + 'T00:00:00' : s);
+      if (isNaN(d.getTime())) return '';
+      const n = Math.floor((Date.now() - d.getTime()) / 86400000);
+      if (n <= 0) return 'сегодня';
+      if (n === 1) return 'вчера';
+      const m10 = n % 10, m100 = n % 100;
+      const w = (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? 'дня' : 'дней';
+      return n + ' ' + w + ' назад';
+    } catch (e) { return ''; }
+  };
+  const rows = recent.map((g) => {
     const cover = g.coverUrl
-      ? '<img src="' + escapeHtml(g.coverUrl) + '" style="width:46px;height:46px;border-radius:8px;object-fit:cover;background:#1c2028;flex-shrink:0" onerror="this.style.display=\'none\'">'
+      ? '<img src="' + escapeHtml(g.coverUrl) + '" loading="lazy" style="width:46px;height:46px;border-radius:8px;object-fit:cover;background:#1c2028;flex-shrink:0" onerror="this.style.display=\'none\'">'
       : '<span style="width:46px;height:46px;border-radius:8px;background:#1c2028;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + SVG('gamepad', 20) + '</span>';
-    const pct = totalHours ? Math.min(100, Math.round((g.hours || 0) / totalHours * 100 * 5)) : 0;
-    return '<div style="display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05)">'
-      + '<span class="mono" style="width:18px;font-size:10px;color:#6b7183">0' + (i + 1) + '</span>'
+    const when = isByPlay
+      ? (escapeHtml(String(g.lastPlayed).slice(0, 10)) + (relDays(g.lastPlayed) ? ' · ' + relDays(g.lastPlayed) : ''))
+      : 'добавлена: ' + (g.createdAt ? new Date(g.createdAt).toLocaleDateString('ru-RU') : '—');
+    const stRu = ({ playing: 'Играю', completed: 'Пройдено', planned: 'В планах', dropped: 'Брошено' })[g.status] || 'В планах';
+    const badge = (typeof achSummaryBadge === 'function' ? (achSummaryBadge(g) || '') : '');
+    return '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">'
       + cover
-      + '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;color:#e8eaf2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(g.title) + '</div>'
-      + '<div class="mono" style="font-size:11px;color:#9aa0b4">' + (g.hours || 0) + ' ч</div>'
-      + '<div style="height:3px;background:rgba(255,255,255,0.07);border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,#c87d2a,#ffb74d);border-radius:2px"></div></div></div>'
-      + '<div style="text-align:right;flex-shrink:0"><div class="mono" style="font-size:16px;font-weight:700;color:#FFB74D">' + y + '</div><div style="font-size:9px;color:#6b7183">год</div></div>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-weight:700;font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(g.title) + '</div>'
+      + '<div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:4px">' + SVG('clock', 10) + ' ' + (g.hours || 0) + ' ч · ' + escapeHtml(g.platform || '') + ' · ' + stRu + '</div>'
+      + (badge ? '<div style="margin-top:4px">' + badge + '</div>' : '')
+      + '</div>'
+      + '<div style="text-align:right;flex-shrink:0"><div class="mono" style="font-size:11px;color:var(--accent)">' + when + '</div></div>'
       + '</div>';
   }).join('');
-  const stat = (num, label) => '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px"><div class="mono" style="font-size:22px;font-weight:700;color:#FFB74D">' + num + '</div><div style="font-size:10px;color:#8a8fa3;text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">' + label + '</div></div>';
-  const hasManualYear = withHours.some(g => g.year);
-  return '<div class="card mb-4 gy-panel" style="background:#0d0f14;border:1px solid rgba(255,183,77,0.18);box-shadow:0 8px 32px rgba(0,0,0,0.35)">'
+  const statBox = (num, label) => '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px"><div class="mono" style="font-size:22px;font-weight:700;color:var(--accent)">' + num + '</div><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px">' + label + '</div></div>';
+  const achBar = '<div style="margin-top:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px">'
+    + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;gap:8px;flex-wrap:wrap"><span>🏆 Достижения библиотеки</span><span class="mono" style="color:var(--accent)">' + ach.unlocked.toLocaleString('ru-RU') + ' / ' + ach.total.toLocaleString('ru-RU') + ' · ' + achPct + '%</span></div>'
+    + '<div style="height:10px;background:rgba(255,255,255,0.07);border-radius:5px;overflow:hidden"><div style="height:100%;width:' + Math.min(100, achPct) + '%;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width 0.5s"></div></div>'
+    + (ach.total ? '' : '<div class="text-xs text-muted" style="margin-top:6px">Откройте игру и синхронизируйте достижения — прогресс появится здесь.</div>')
+    + '</div>';
+  return '<div class="card mb-4">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 18px 10px 18px;flex-wrap:wrap">'
-    + '<div class="mono" style="font-size:11px;letter-spacing:0.14em;color:#FFB74D;font-weight:700">⏳ ХРОНОЛОГИЧЕСКОЕ ЗАКЛЮЧЕНИЕ</div>'
-    + '<div class="mono" style="font-size:10px;color:#6b7183">ВРЕМЕННОЙ АРХИВ БИБЛИОТЕКИ · ' + withHours.length + ' ИГР · ' + Math.round(totalHours).toLocaleString('ru-RU') + ' Ч</div>'
+    + '<div class="mono" style="font-size:11px;letter-spacing:0.14em;color:var(--accent);font-weight:700">▶ ПОСЛЕДНИЕ ЗАПУСКИ</div>'
+    + '<div class="mono" style="font-size:10px;color:var(--text-muted)">' + (isByPlay ? 'ПО ДАТЕ ПОСЛЕДНЕГО ЗАПУСКА · ИГР: ' + recent.length : 'ДАННЫХ О ЗАПУСКАХ НЕТ — ПОКАЗАНЫ ПОСЛЕДНИЕ ДОБАВЛЕННЫЕ') + '</div>'
     + '</div>'
     + '<div style="display:flex;gap:18px;padding:6px 18px 16px 18px;flex-wrap:wrap">'
-    // left: big year + status + chart
-    + '<div style="flex:1.6;min-width:300px">'
-    + '<div class="mono" style="font-size:10px;color:#8a8fa3;letter-spacing:0.08em">ВАША БИБЛИОТЕКА ЖИВЁТ В</div>'
-    + '<div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">'
-    + '<span class="mono" style="font-size:64px;font-weight:800;line-height:1;background:linear-gradient(135deg,#ffd54f,#ef8f52);-webkit-background-clip:text;background-clip:text;color:transparent">' + eraYear + '</span>'
-    + '<div><div style="font-size:11px;color:#8a8fa3">лет отставания: <span class="mono" style="color:#FFB74D;font-weight:700">' + yearsBehind + '</span></div>'
-    + '<div class="mono" style="font-size:11px;color:#FFD54F;font-weight:700">' + statusText + '</div>'
-    + '<div style="font-size:10px;color:#6b7183">' + statusNote + '</div></div>'
+    + '<div style="flex:1.6;min-width:300px">' + rows + '</div>'
+    + '<div style="flex:1;min-width:260px">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+    + statBox(games.length, 'игр в библиотеке')
+    + statBox(Math.round(totalHours).toLocaleString('ru-RU'), 'часов всего')
     + '</div>'
-    + '<div style="margin:10px 0 4px 0" class="mono"><span style="font-size:10px;color:#8a8fa3">ВРЕМЕННОЙ СИГНАЛ БИБЛИОТЕКИ</span><span style="font-size:10px;color:#6b7183;float:right">' + minYear + ' — ' + maxYear + '</span></div>'
-    + chartSvg
-    + (!hasManualYear ? '<div style="font-size:10px;color:#6b7183;margin-top:4px">* Год берётся из поля «Год» игры, даты последнего запуска или даты добавления. Уточните годы в карточках игр для точной хронологии.</div>' : '')
-    + '</div>'
-    // right: anchors + stats
-    + '<div style="flex:1;min-width:280px">'
-    + '<div class="mono" style="font-size:10px;color:#8a8fa3;letter-spacing:0.08em;margin-bottom:6px">ИГРЫ-ЯКОРЯ <span style="float:right;color:#6b7183">ЯДРО ВАШЕЙ ЭПОХИ</span></div>'
-    + anchorRows
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">'
-    + stat(epochPct + '%', 'времени в эпохе')
-    + stat(cogStr, 'центр тяжести')
-    + stat(years[0], 'старейший год')
-    + stat(years[years.length - 1], 'новейший год')
+    + achBar
     + '</div>'
     + '</div>'
-    + '</div>'
-    + '<div style="display:flex;justify-content:space-between;padding:10px 18px;border-top:1px solid rgba(255,255,255,0.06)" class="mono"><span style="font-size:10px;color:#6b7183">УЧТЕНО ИГР: ' + withHours.length + ' · ЧАСОВ: ' + Math.round(totalHours).toLocaleString('ru-RU') + '</span><span style="font-size:10px;color:#6b7183">DISCIPLINE.TRACKER v6.0 · ХРОНОДЕЛЕНИЕ</span></div>'
     + '</div>';
 }
 
@@ -13578,21 +13687,44 @@ function renderDisciplineRadar(habitsRaw){
     : '<span style="display:inline-block;border:1.5px solid #00E676;color:#7dffc4;border-radius:999px;padding:5px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">ВСЁ ПОД КОНТРОЛЕМ</span>';
   // SVG radar
   const N = axes.length;
+  // v6.2.0 Req #5: hex → rgba для адаптивной раскраски радара
+  const rc = (hex, a) => {
+    try {
+      const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex).trim());
+      if (!m) return hex;
+      return 'rgba(' + parseInt(m[1], 16) + ',' + parseInt(m[2], 16) + ',' + parseInt(m[3], 16) + ',' + a + ')';
+    } catch (e) { return hex; }
+  };
   const W = 680, H = 560, cx = W/2, cy = H/2 + 4, R = 168;
   const ang = i => -Math.PI/2 + i * 2 * Math.PI / N;
   const pt = (i, r) => [cx + r * Math.cos(ang(i)), cy + r * Math.sin(ang(i))];
   const poly = (r) => Array.from({length: N}, (_, i) => pt(i, r).map(v => v.toFixed(1)).join(',')).join(' ');
   let grid = '';
+  // v6.2.0 Req #5: сетка и спицы радара — нейтральные, данные и подписи — в цветах плиток привычек
   [0.25, 0.5, 0.75, 1].forEach(k => {
-    grid += '<polygon points="' + poly(R * k) + '" fill="' + (k === 1 ? 'rgba(0,217,255,0.03)' : 'none') + '" stroke="rgba(0,217,255,' + (0.30 - k * 0.15).toFixed(2) + ')" stroke-width="1"/>';
+    grid += '<polygon points="' + poly(R * k) + '" fill="' + (k === 1 ? 'rgba(255,255,255,0.03)' : 'none') + '" stroke="rgba(255,255,255,' + (0.18 - k * 0.12).toFixed(2) + ')" stroke-width="1"/>';
   });
   let spokes = '';
   for (let i = 0; i < N; i++){
     const p = pt(i, R);
-    spokes += '<line x1="' + cx + '" y1="' + cy + '" x2="' + p[0].toFixed(1) + '" y2="' + p[1].toFixed(1) + '" stroke="rgba(0,217,255,0.22)" stroke-width="1"/>';
+    spokes += '<line x1="' + cx + '" y1="' + cy + '" x2="' + p[0].toFixed(1) + '" y2="' + p[1].toFixed(1) + '" stroke="' + rc(axes[i].color, 0.32) + '" stroke-width="1.5"/>';
   }
   const dataPts = axes.map((a, i) => pt(i, R * Math.max(0.07, a.pct / 100)));
-  const dataPoly = dataPts.map(p => p.map(v => v.toFixed(1)).join(',')).join(' ');
+  // v6.2.0 Req #5: поверхность радара — веер треугольников в цвете каждой привычки,
+  // контур — градиентные рёбра (цвет привычки i → цвет привычки i+1).
+  let wedges = '', edgeDefs = '', edges = '';
+  if (N === 1){
+    const rr = Math.max(10, R * Math.max(0.07, axes[0].pct / 100));
+    wedges += '<circle cx="' + cx + '" cy="' + cy + '" r="' + rr.toFixed(1) + '" fill="' + rc(axes[0].color, 0.18) + '" stroke="' + axes[0].color + '" stroke-width="2.5" style="filter:drop-shadow(0 0 8px ' + rc(axes[0].color, 0.5) + ')"/>';
+  } else {
+    for (let i = 0; i < N; i++){
+      const j = (i + 1) % N;
+      const p1 = dataPts[i], p2 = dataPts[j];
+      wedges += '<polygon points="' + cx + ',' + cy + ' ' + p1.map(v => v.toFixed(1)).join(',') + ' ' + p2.map(v => v.toFixed(1)).join(',') + '" fill="' + rc(axes[i].color, 0.15) + '" stroke="none"/>';
+      edgeDefs += '<linearGradient id="drEdge' + i + '" gradientUnits="userSpaceOnUse" x1="' + p1[0].toFixed(1) + '" y1="' + p1[1].toFixed(1) + '" x2="' + p2[0].toFixed(1) + '" y2="' + p2[1].toFixed(1) + '"><stop offset="0" stop-color="' + (axes[i].color || '#00D9FF') + '"/><stop offset="1" stop-color="' + (axes[j].color || '#00D9FF') + '"/></linearGradient>';
+      edges += '<line x1="' + p1[0].toFixed(1) + '" y1="' + p1[1].toFixed(1) + '" x2="' + p2[0].toFixed(1) + '" y2="' + p2[1].toFixed(1) + '" stroke="url(#drEdge' + i + ')" stroke-width="2.5" stroke-linecap="round"/>';
+    }
+  }
   let dots = '';
   dataPts.forEach((p, i) => {
     const hc = axes[i].color || '#00D9FF'; // точка окрашена в цвет привычки
@@ -13608,15 +13740,17 @@ function renderDisciplineRadar(habitsRaw){
     labels += '<text class="radar-axis" x="' + p[0].toFixed(1) + '" y="' + (p[1] + dy).toFixed(1) + '" text-anchor="' + anchor + '" font-size="13" font-weight="700" fill="' + (a.color || '#e8eaf2') + '" font-family="Inter,sans-serif" onclick="openHabitForm(\'' + String(a.id).replace(/[^a-zA-Z0-9_-]/g,'') + '\')"><title>' + escapeHtml(a.label) + ' · клик — редактировать</title>' + escapeHtml(short) + '</text>';
   });
   const radarSvg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:min(560px,100%);height:auto;display:block;margin:0 auto">'
-    + '<defs><radialGradient id="drFill" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="rgba(0,217,255,0.35)"/><stop offset="1" stop-color="rgba(0,217,255,0.12)"/></radialGradient></defs>'
-    + grid + spokes
-    + '<polygon points="' + dataPoly + '" fill="url(#drFill)" stroke="#00D9FF" stroke-width="2.5" stroke-linejoin="round" style="filter:drop-shadow(0 0 8px rgba(0,217,255,0.45))"/>'
+    + '<defs>' + edgeDefs + '</defs>'
+    + grid + spokes + wedges + edges
     + dots + labels
     + '</svg>';
   const chip = (border, color, inner) => '<span style="display:inline-flex;align-items:center;gap:8px;border:1.5px solid ' + border + ';color:' + color + ';border-radius:12px;padding:8px 16px;font-size:14px;font-weight:700">' + inner + '</span>';
-  return '<div class="card mb-4" style="background:#0d0f14;border:1px solid rgba(0,217,255,0.22);box-shadow:0 8px 32px rgba(0,0,0,0.35);padding:18px 20px">'
+  // v6.2.0 Req #5: рамка и заголовок панели тоже подстраиваются (одна привычка — её цвет, несколько — акцент темы)
+  const chromeColor = N === 1 ? axes[0].color : 'var(--accent)';
+  const chromeBorder = N === 1 ? rc(axes[0].color, 0.4) : 'rgba(255,255,255,0.12)';
+  return '<div class="card mb-4" style="background:#0d0f14;border:1px solid ' + chromeBorder + ';box-shadow:0 8px 32px rgba(0,0,0,0.35);padding:18px 20px">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">'
-    + '<div class="mono" style="font-size:11px;letter-spacing:0.14em;color:#00D9FF;font-weight:700">📡 РАДАР ДИСЦИПЛИНЫ · 31 ДЕНЬ · ДО 12 ОСЕЙ</div>'
+    + '<div class="mono" style="font-size:11px;letter-spacing:0.14em;color:' + chromeColor + ';font-weight:700">📡 РАДАР ДИСЦИПЛИНЫ · 31 ДЕНЬ · ДО 12 ОСЕЙ</div>'
     + '<div class="mono" style="font-size:10px;color:#6b7183">СРЕДНЯЯ ДИСЦИПЛИНА: ' + avgPct + '%</div>'
     + '</div>'
     + '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">'
@@ -14004,7 +14138,7 @@ function stopGfnTicker(){
 
 /* ---------- 3) СБРОС ОТОБРАЖЕНИЯ + CSV ---------- */
 function resetGamesDisplay(){
-  if (!confirm('Сбросить отображение вкладки «Игры»?\n\nБудут сброшены: фильтр, сортировка, кэш панелей Steam Live и хронологии.\nСами игры НЕ удаляются.')) return;
+  if (!confirm('Сбросить отображение вкладки «Игры»?\n\nБудут сброшены: фильтр, сортировка, кэш панелей Steam Live.\nСами игры НЕ удаляются.')) return;
   window.__gFilter = 'all';
   window.__gSort = 'recent';
   window.__gPlatform = 'all'; // v6.1.0
@@ -14809,7 +14943,7 @@ async function xboxSyncGames(){
   toast('Синхронизация игр Xbox...', 'info');
   try {
     const d = await achServerFetch('/api/xbox/games');
-    const objs = (d.titles || []).filter(t => t.name).map(t => ({ title: t.name, platform: 'Xbox Game Pass', titleId: t.titleId || 0, coverUrl: t.displayImage || '' }));
+    const objs = (d.titles || []).filter(t => t.name).map(t => ({ title: t.name, platform: 'Xbox Game Pass', titleId: t.titleId || 0, coverUrl: t.displayImage || '', lastPlayed: t.lastTimePlayed ? String(t.lastTimePlayed).slice(0, 10) : '' }));
     if (!objs.length){ toast('Xbox: аккаунт не вернул игр — выполните вход и убедитесь, что профиль Xbox Live активен', 'warning'); return; }
     const added = mergeGamesIntoLibrary(objs);
     try { const cfg = getApiConfig('xbox'); cfg.connected = true; if (d.gamertag) cfg.nickname = d.gamertag; setApiConfig('xbox', cfg); } catch(e){}
