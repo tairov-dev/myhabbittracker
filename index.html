@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover">
 <title>DISCIPLINE.TRACKER</title>
+<!-- v6.3.0: PWA — трекер ставится как приложение (Android/iOS) и работает офлайн -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0F111A">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DISCIPLINE.TRACKER">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -1101,7 +1110,7 @@ a:hover{text-decoration:underline}
   <div class="app-content-wrap">
   <header class="header">
     <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()" title="Меню" aria-label="Toggle sidebar"><span></span><span></span><span></span></button>
-    <div class="logo"><span class="logo-dot"></span>DISCIPLINE.TRACKER <span class="mono" style="font-size:9px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:1px 5px;vertical-align:middle">v6.2.0</span></div>
+    <div class="logo"><span class="logo-dot"></span>DISCIPLINE.TRACKER <span class="mono" style="font-size:9px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:1px 5px;vertical-align:middle">v6.3.0</span></div>
     <div class="header-stats">
       <span class="stat-lvl">LVL <span id="user-lvl">1</span></span>
       <div class="xp-bar"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
@@ -4727,6 +4736,8 @@ function init(){
   try { checkAutoAchievements(); } catch(e) { console.warn('auto-ach check failed', e); }
   // Auto-backup every 7 days if enabled
   try { autoBackupIfNeeded(); } catch(e){ console.warn('auto-backup failed', e); }
+  // v6.3.0: облачная синхронизация — стартовая проверка сервера (единая база ПК/телефон/APK)
+  try { if (window.CloudSync) window.CloudSync.init(); } catch(e){ console.warn('cloud sync init failed', e); }
 }
 
 window.addEventListener('DOMContentLoaded', init);
@@ -7237,6 +7248,30 @@ function(){
     <div><div style="font-weight:600">${escapeHtml(b.name||'backup')}</div><div class="text-xs text-muted mono">${new Date(b.ts).toLocaleString()} · ${(b.size/1024).toFixed(1)} KB</div></div>
     <button class="btn btn-sm" onclick="restoreBackup('${escapeHtml(b.name)}')">${SVG('import',11)} Восстановить</button>
   </div>`).join('') : '<div class="text-xs text-muted">Бэкапов пока нет</div>';
+  // v6.3.0: облачная синхронизация — единая база (ПК + телефон + APK)
+  const cloudOn = Store.get('cloud_enabled', false);
+  const cloudCode = Store.get('cloud_code', '');
+  const cloudDevice = Store.get('cloud_device', '');
+  const cloudLastSync = Store.get('cloud_last_sync', 0);
+  const cloudLastAct = Store.get('cloud_last_action', '');
+  const cloudStatusText = (cloudOn && cloudCode)
+    ? (cloudLastSync
+        ? ('Последняя синхронизация: ' + new Date(cloudLastSync).toLocaleString() + (cloudLastAct ? ' (' + cloudLastAct + ')' : '') + '. На другом устройстве откройте Настройки, введите этот же код — базы объединятся.')
+        : 'Включена, но ещё не синхронизировалось — нажмите «Подключить» или «Выгрузить сейчас».')
+    : 'Выключена — придумайте код синхронизации и подключите устройства.';
+  const cloudBackupsHtml = (function(){
+    const bks = (window.CloudSync ? window.CloudSync.localBackups() : []);
+    if (!bks.length) return '';
+    let h = '<div class="mt-3"><div class="form-label">Резервные копии перед загрузкой с сервера (макс. 3):</div>';
+    bks.slice().reverse().forEach(function(b){
+      h += '<div class="backup-row"><div><div style="font-weight:600">Копия от ' + new Date(b.ts).toLocaleString() + '</div><div class="text-xs text-muted mono">' + (b.device ? escapeHtml(b.device) : '—') + (b.size ? ' · ' + Math.round(b.size / 1024) + ' KB' : '') + '</div></div>' +
+        '<div style="display:flex;gap:6px">' +
+        '<button class="btn btn-sm" data-k="' + b.key + '" onclick="cloudRestoreBackup(this.dataset.k)">' + SVG('import', 11) + ' Восстановить</button>' +
+        '<button class="btn btn-sm btn-danger" data-k="' + b.key + '" onclick="cloudDeleteBackup(this.dataset.k)">' + SVG('trash', 11) + '</button>' +
+        '</div></div>';
+    });
+    return h + '</div>';
+  })();
   return `<div class="panel-header">
     <div><div class="panel-title">${SVG('settings',24)} <span class="accent">Настройки</span></div>
     <div class="panel-subtitle">Тема, графика и анимации, бэкапы, экспорт, хранилище, игровые платформы</div></div>
@@ -7406,6 +7441,46 @@ function(){
         </label>
       </div>
       <div class="backups-list">${backupsHtml}</div>
+    </div>
+    <div class="card">
+      <div class="section-title"><span class="dot"></span>☁️ Облачная синхронизация — единая база (v6.3.0)</div>
+      <p class="text-sm text-muted mb-3">Одна база данных для компьютера, телефона и приложения (APK/PWA). Данные автоматически выгружаются на ваш сервер и забираются с него на всех устройствах с одним и тем же <b>кодом синхронизации</b>. Придумайте свой код (например DT-MY-2026) и введите тот же на других устройствах — базы объединятся.</p>
+      <div class="mb-3" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label class="text-sm" style="display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" ${cloudOn ? 'checked' : ''} onchange="cloudToggle(this.checked)"> Включить синхронизацию
+        </label>
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-row">
+          <label class="form-label">Код синхронизации</label>
+          <input type="text" class="form-input" id="cloud-code" placeholder="DT-XXXX-XXXX" value="${escapeHtml(cloudCode)}" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Имя устройства</label>
+          <input type="text" class="form-input" id="cloud-device" placeholder="Например: ПК Chrome" value="${escapeHtml(cloudDevice)}">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn btn-sm" onclick="cloudGenCode()">${SVG('refresh',12)} Сгенерировать код</button>
+        <button class="btn btn-primary btn-sm" onclick="cloudConnect()">${SVG('cloud-sync',12)} Подключить</button>
+        <button class="btn btn-sm" onclick="cloudPushNow()">${SVG('upload-line',12)} Выгрузить сейчас</button>
+        <button class="btn btn-sm" onclick="cloudPullNow()">${SVG('download-line',12)} Загрузить сейчас</button>
+        <button class="btn btn-sm" onclick="cloudCheck()">${SVG('search-line',12)} Проверить сервер</button>
+      </div>
+      <div id="cloud-status" class="status-row" style="display:flex;align-items:flex-start;gap:8px;padding:10px;background:var(--bg-input);border:1px solid var(--border);border-radius:8px">
+        <span id="cloud-status-dot" style="flex-shrink:0;width:10px;height:10px;border-radius:50%;background:var(--text-faint);margin-top:4px"></span>
+        <span id="cloud-status-text" class="text-sm text-muted">${escapeHtml(cloudStatusText)}</span>
+      </div>
+      <div class="text-xs text-muted mt-2">Автоматически: изменения уходят на сервер через ~4 секунды после правки; проверка сервера — каждую минуту и при каждом открытии трекера. При конфликте (два устройства меняли одновременно) побеждает более свежая серверная копия, а локальная сохраняется в резервных копиях ниже — данные не теряются никогда.</div>
+      ${cloudBackupsHtml}
+      <div class="warning-banner mt-3">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <div style="color:var(--warning);flex-shrink:0">${SVG('alert',18)}</div>
+          <div class="text-xs">
+            <b>Важно (Render Free):</b> база на сервере живёт до перезапуска сервиса — это не страшно, у каждого устройства есть полная локальная копия, и при следующем открытии трекер сам выгрузит актуальные данные. Для постоянного хранения подключите Render Disk. Код хранится на сервере только как sha256-хэш — данные видит только тот, кто знает код. Не используйте простые коды.
+          </div>
+        </div>
+      </div>
     </div>
     <div class="card">
       <div class="section-title"><span class="dot"></span>Локальная папка хранения</div>
@@ -15217,6 +15292,358 @@ async function loadAllGuidesForGame(){
     } catch(e){}
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+})();
+</script>
+
+<script>
+// ============================================================
+// v6.3.0 — ОБЛАЧНАЯ СИНХРОНИЗАЦИЯ: единая база (ПК + телефон + APK)
+// Сервер: POST /api/cloud/push · GET /api/cloud/pull · GET /api/cloud/status
+// Снимок всех ключей dt.* localStorage уходит на сервер под кодом
+// синхронизации; устройства с тем же кодом забирают этот снимок.
+// Конфликт (HTTP 409): побеждает серверная копия, локальная — в бэкапы.
+// Служебные ключи dt.cloud_* НЕ синхронизируются (на каждом устройстве свои).
+// ============================================================
+(function(){
+'use strict';
+
+var TICK_MS = 60000;      // фоновая проверка сервера
+var DEBOUNCE_MS = 4000;   // пауза после последнего изменения перед выгрузкой
+
+var S = { ready:false, busy:false, applying:false, dirty:{}, pushTimer:null, tickTimer:null };
+
+function isCloudKey(k){ return String(k).indexOf('dt.cloud_') === 0; }
+function isDtKey(k){ return String(k).indexOf('dt.') === 0; }
+
+function cfg(){
+  return {
+    enabled: Store.get('cloud_enabled', false) === true,
+    code: String(Store.get('cloud_code', '') || ''),
+    device: String(Store.get('cloud_device', '') || '')
+  };
+}
+function baseUrl(){
+  /* трекер на Render → тот же origin; локально (file://) → сервер из настроек */
+  if (location.protocol === 'http:' || location.protocol === 'https:') return '';
+  return String(Store.get('render_server_url', '') || 'https://myhabbittracker-t76t.onrender.com').replace(/\/+$/, '');
+}
+function deviceName(){
+  var ua = navigator.userAgent || '';
+  var mob = /Android|iPhone|iPad|Mobile/i.test(ua);
+  var br = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Браузер';
+  return (mob ? 'Телефон ' : 'ПК ') + br;
+}
+function collect(){
+  var data = {};
+  for (var i = 0; i < localStorage.length; i++){
+    var k = localStorage.key(i);
+    if (!k || !isDtKey(k) || isCloudKey(k)) continue;
+    data[k] = localStorage.getItem(k);
+  }
+  return data;
+}
+function snapshotsEqual(a, b){
+  var ka = Object.keys(a), kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  for (var i = 0; i < ka.length; i++){ if (a[ka[i]] !== b[ka[i]]) return false; }
+  return true;
+}
+function api(path, opts){
+  return fetch(baseUrl() + path, opts || {}).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(j){ return { status: r.status, json: j }; });
+  });
+}
+
+/* ---------- локальные резервные копии (не синхронизируются) ---------- */
+function localBackups(){
+  var out = [];
+  for (var i = 0; i < localStorage.length; i++){
+    var k = localStorage.key(i);
+    if (k && k.indexOf('dtcloud_backup_') === 0){
+      var meta = {};
+      try { meta = JSON.parse(localStorage.getItem(k) || '{}'); } catch(e){}
+      out.push({ key: k, ts: meta.ts || parseInt(k.slice(15), 10) || 0, size: meta.data ? JSON.stringify(meta.data).length : 0, device: meta.device || '' });
+    }
+  }
+  out.sort(function(a, b){ return a.ts - b.ts; });
+  return out;
+}
+function makeLocalBackup(){
+  try {
+    var snap = collect();
+    var key = 'dtcloud_backup_' + Date.now();
+    localStorage.setItem(key, JSON.stringify({ ts: Date.now(), device: cfg().device || deviceName(), data: snap }));
+    var bks = localBackups();
+    while (bks.length > 3){ localStorage.removeItem(bks[0].key); bks.shift(); }
+  } catch(e){ console.warn('cloud backup failed', e); }
+}
+function restoreBackup(key){
+  var raw = null;
+  try { raw = JSON.parse(localStorage.getItem(key) || 'null'); } catch(e){}
+  if (!raw || !raw.data){ toast('Резервная копия повреждена', 'error'); return; }
+  if (!confirm('Восстановить данные из копии от ' + new Date(raw.ts).toLocaleString() + '? Текущие данные будут заменены.')) return;
+  applySnapshot(raw.data);
+  toast('Копия восстановлена. Обновляю…', 'success');
+  setTimeout(function(){ location.reload(); }, 700);
+}
+function deleteBackup(key){
+  try { localStorage.removeItem(key); } catch(e){}
+  toast('Копия удалена');
+  refreshSettingsCard();
+}
+
+/* ---------- применение снимка сервера ---------- */
+function applySnapshot(data){
+  S.applying = true;
+  try {
+    var drop = [];
+    for (var i = 0; i < localStorage.length; i++){
+      var k = localStorage.key(i);
+      if (k && isDtKey(k) && !isCloudKey(k) && !(k in data)) drop.push(k);
+    }
+    drop.forEach(function(k){ localStorage.removeItem(k); });
+    Object.keys(data).forEach(function(k){ try { localStorage.setItem(k, data[k]); } catch(e){} });
+  } finally { S.applying = false; }
+  S.dirty = {};
+}
+
+/* ---------- ВЫГРУЗКА (push) ---------- */
+function push(force){
+  var c = cfg();
+  if (!c.enabled || !c.code) return Promise.resolve({ ok:false, reason:'off' });
+  if (S.busy) return Promise.resolve({ ok:false, reason:'busy' });
+  S.busy = true; setCard('busy', 'Выгрузка на сервер…');
+  return api('/api/cloud/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: c.code, device: c.device || deviceName(), baseTs: Store.get('cloud_last_ts', 0), force: !!force, data: collect() })
+  }).then(function(r){
+    if (r.status === 200){
+      Store.set('cloud_last_ts', r.json.ts || Date.now());
+      Store.set('cloud_last_sync', Date.now());
+      Store.set('cloud_last_action', 'выгрузка');
+      S.dirty = {};
+      setCard('ok', 'Выгружено на сервер: ' + new Date().toLocaleTimeString());
+      return { ok:true };
+    }
+    if (r.status === 409 && !force){
+      /* сервер новее — забираем его копию (локальная уйдёт в бэкапы) */
+      setCard('busy', 'На сервере более свежие данные — загружаю…');
+      return pull({ silent:true });
+    }
+    var msg = (r.json && r.json.error) || ('HTTP ' + r.status);
+    setCard('err', 'Ошибка выгрузки: ' + msg);
+    return { ok:false, reason: msg };
+  }).catch(function(e){
+    setCard('err', 'Нет связи с сервером (данные сохранены локально)');
+    return { ok:false, reason: String((e && e.message) || e) };
+  }).then(function(res){ S.busy = false; return res; });
+}
+
+/* ---------- ЗАГРУЗКА (pull) ---------- */
+function pull(opts){
+  opts = opts || {};
+  var c = cfg();
+  if (!c.code){ if (!opts.silent) toast('Сначала введите код синхронизации', 'warning'); return Promise.resolve({ ok:false }); }
+  return api('/api/cloud/pull?code=' + encodeURIComponent(c.code)).then(function(r){
+    if (r.status === 404){
+      if (!opts.silent) toast('На сервере нет данных по этому коду. Нажмите «Выгрузить сейчас», чтобы загрузить текущие.', 'warning');
+      return { ok:false, reason:'not_found' };
+    }
+    if (r.status !== 200){
+      if (!opts.silent) toast('Ошибка загрузки: ' + ((r.json && r.json.error) || r.status), 'error');
+      return { ok:false };
+    }
+    var data = r.json.data || {};
+    var ts = r.json.ts || Date.now();
+    if (!opts.always && snapshotsEqual(data, collect())){
+      Store.set('cloud_last_ts', ts);
+      setCard('ok', 'Синхронизировано (без изменений): ' + new Date().toLocaleTimeString());
+      return { ok:true, same:true };
+    }
+    if (!opts.silent && !confirm('Заменить данные на этом устройстве копией с сервера' + (r.json.device ? (' (устройство: ' + r.json.device + ', ' + new Date(ts).toLocaleString() + ')') : '') + '?\n\nТекущие данные будут сохранены в резервных копиях.')) return { ok:false };
+    makeLocalBackup();
+    applySnapshot(data);
+    Store.set('cloud_last_ts', ts);
+    Store.set('cloud_last_sync', Date.now());
+    Store.set('cloud_last_action', 'загрузка');
+    toast('Данные получены с сервера. Обновляю…', 'success');
+    setTimeout(function(){ location.reload(); }, 700);
+    return { ok:true };
+  }).catch(function(e){
+    if (!opts.silent) toast('Нет связи с сервером: ' + ((e && e.message) || e), 'error');
+    return { ok:false };
+  });
+}
+
+/* ---------- фоновый цикл ---------- */
+function syncTick(){
+  var c = cfg();
+  if (!S.ready || !c.enabled || !c.code || S.busy || S.applying) return;
+  if (document.hidden && !Object.keys(S.dirty).length) return;
+  if (Object.keys(S.dirty).length){ push(false); return; }
+  api('/api/cloud/status?code=' + encodeURIComponent(c.code)).then(function(st){
+    if (st.status !== 200 || !st.json.exists) return;
+    var ts = st.json.ts || 0;
+    if (ts > (Store.get('cloud_last_ts', 0) || 0)) pull({ silent:true });
+  }).catch(function(){});
+}
+function onLocalChange(k){
+  if (!S.ready || S.applying || isCloudKey(k)) return;
+  var c = cfg();
+  if (!c.enabled || !c.code) return;
+  S.dirty[k] = 1;
+  clearTimeout(S.pushTimer);
+  S.pushTimer = setTimeout(function(){ if (Object.keys(S.dirty).length) push(false); }, DEBOUNCE_MS);
+}
+function flushOnExit(){
+  /* закрыли вкладку/свернули приложение с непереданными правками — дожимаем beacon'ом */
+  var c = cfg();
+  if (!Object.keys(S.dirty).length || !c.enabled || !c.code || S.busy || S.applying) return;
+  try {
+    var body = JSON.stringify({ code: c.code, device: c.device || deviceName(), baseTs: Store.get('cloud_last_ts', 0), data: collect() });
+    if (navigator.sendBeacon) navigator.sendBeacon(baseUrl() + '/api/cloud/push', new Blob([body], { type: 'text/plain;charset=UTF-8' }));
+  } catch(e){}
+}
+
+/* ---------- статус в карточке настроек ---------- */
+function setCard(kind, msg){
+  var dot = document.getElementById('cloud-status-dot');
+  var txt = document.getElementById('cloud-status-text');
+  if (!dot || !txt) return;
+  var colors = { ok: 'var(--success)', err: 'var(--danger)', busy: 'var(--warning)', off: 'var(--text-faint)' };
+  dot.style.background = colors[kind] || 'var(--text-faint)';
+  if (msg) txt.textContent = msg;
+}
+function refreshSettingsCard(){
+  try { if (typeof currentTab !== 'undefined' && currentTab === 'settings' && typeof refreshTab === 'function') refreshTab('settings'); } catch(e){}
+}
+
+/* ---------- ХУКИ localStorage: любое изменение → отложенная выгрузка ---------- */
+try {
+  var _setItem = Storage.prototype.setItem;
+  Storage.prototype.setItem = function(k, v){
+    _setItem.call(this, k, v);
+    try { if (isDtKey(k)) onLocalChange(k); } catch(e){}
+  };
+  var _rmItem = Storage.prototype.removeItem;
+  Storage.prototype.removeItem = function(k){
+    _rmItem.call(this, k);
+    try { if (isDtKey(k)) onLocalChange(k); } catch(e){}
+  };
+} catch(e){}
+
+/* ---------- INIT + Service Worker (PWA → «Установить приложение»/APK) ---------- */
+function init(){
+  if (S.ready) return;
+  S.ready = true;
+  clearInterval(S.tickTimer);
+  S.tickTimer = setInterval(syncTick, TICK_MS);
+  window.addEventListener('pagehide', flushOnExit);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) setTimeout(syncTick, 1500); });
+  var c = cfg();
+  if (c.enabled && c.code){
+    api('/api/cloud/status?code=' + encodeURIComponent(c.code)).then(function(st){
+      if (st.status !== 200){ setCard('err', 'Сервер недоступен — данные хранятся локально'); return; }
+      if (!st.json.exists){
+        /* сервер пуст (первый запуск или рестарт Render) — выгружаем локальную копию */
+        setCard('busy', 'Сервер пуст — выгружаю локальные данные…');
+        return push(true);
+      }
+      var ts = st.json.ts || 0;
+      if (ts > (Store.get('cloud_last_ts', 0) || 0)) return pull({ silent:true });
+      setCard('ok', 'Синхронизировано: ' + (Store.get('cloud_last_sync', 0) ? new Date(Store.get('cloud_last_sync')).toLocaleString() : new Date().toLocaleString()));
+    }).catch(function(){ setCard('err', 'Нет связи с сервером — данные хранятся локально'); });
+  }
+  /* PWA: регистрация service worker (только https/localhost) */
+  try {
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')){
+      window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
+    }
+  } catch(e){}
+}
+
+/* ---------- публичное API + обработчики кнопок карточки ---------- */
+window.CloudSync = { init: init, push: push, pull: pull, syncTick: syncTick, cfg: cfg, deviceName: deviceName, localBackups: localBackups, restoreBackup: restoreBackup, deleteBackup: deleteBackup, state: S };
+
+function cloudReadInputs(){
+  var ce = document.getElementById('cloud-code');
+  var de = document.getElementById('cloud-device');
+  if (ce && ce.value.trim()) Store.set('cloud_code', ce.value.trim());
+  if (de) Store.set('cloud_device', de.value.trim() || deviceName());
+}
+window.cloudToggle = function(on){
+  cloudReadInputs();
+  Store.set('cloud_enabled', !!on);
+  if (on){
+    var c = cfg();
+    if (!c.code) toast('Введите код синхронизации и нажмите «Подключить»', 'warning');
+    else toast('Синхронизация включена', 'success');
+  } else {
+    clearTimeout(S.pushTimer);
+    S.dirty = {};
+    toast('Синхронизация выключена (копия на сервере сохранена)', 'warning');
+  }
+  setCard(on ? 'ok' : 'off', on ? 'Включена — нажмите «Подключить», если ещё не подключено' : 'Выключена');
+};
+window.cloudGenCode = function(){
+  var abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var seg = function(n){ var s = '', i; for (i = 0; i < n; i++) s += abc.charAt(Math.floor(Math.random() * abc.length)); return s; };
+  var code = 'DT-' + seg(4) + '-' + seg(4);
+  var el = document.getElementById('cloud-code');
+  if (el) el.value = code;
+  Store.set('cloud_code', code);
+  toast('Код сгенерирован: ' + code + ' — введите его же на других устройствах', 'success');
+};
+window.cloudConnect = function(){
+  cloudReadInputs();
+  var c = cfg();
+  if (!c.code || c.code.length < 4){ toast('Код должен быть минимум 4 символа', 'warning'); return; }
+  Store.set('cloud_enabled', true);
+  toast('Подключение к серверу…');
+  api('/api/cloud/status?code=' + encodeURIComponent(c.code)).then(function(st){
+    if (st.status !== 200){ setCard('err', 'Сервер недоступен'); toast('Сервер недоступен — проверьте URL в «Сервер синхронизации игр»', 'error'); return; }
+    if (st.json.exists){
+      var info = 'На сервере уже есть данные' + (st.json.device ? (' (устройство: ' + st.json.device + ', ' + new Date(st.json.ts).toLocaleString() + ')') : '') + '.';
+      if (confirm(info + '\n\nOK — загрузить данные сервера на это устройство (локальные сохранятся в копиях).\nОтмена — оставить локальные данные и перезаписать ими сервер.')){
+        pull({ silent:true }).then(function(r){ if (r && r.same) refreshSettingsCard(); });
+      } else {
+        push(true).then(function(r){ if (r && r.ok) refreshSettingsCard(); });
+      }
+    } else {
+      push(true).then(function(r){
+        if (r && r.ok){ toast('Готово! База выгружена. Введите этот же код на телефоне — данные объединятся.', 'success'); refreshSettingsCard(); }
+      });
+    }
+  }).catch(function(){ setCard('err', 'Нет связи с сервером'); toast('Нет связи с сервером', 'error'); });
+};
+window.cloudPushNow = function(){
+  cloudReadInputs();
+  var c = cfg();
+  if (!c.code){ toast('Сначала введите код синхронизации', 'warning'); return; }
+  Store.set('cloud_enabled', true);
+  if (!confirm('Выгрузить текущие данные на сервер? Копия на сервере будет перезаписана.')) return;
+  push(true).then(function(r){ if (r && r.ok){ toast('Данные выгружены на сервер', 'success'); refreshSettingsCard(); } });
+};
+window.cloudPullNow = function(){
+  cloudReadInputs();
+  var c = cfg();
+  if (!c.code){ toast('Сначала введите код синхронизации', 'warning'); return; }
+  pull({ always:true });
+};
+window.cloudCheck = function(){
+  cloudReadInputs();
+  var c = cfg();
+  if (!c.code){ toast('Введите код синхронизации', 'warning'); return; }
+  setCard('busy', 'Проверяю сервер…');
+  api('/api/cloud/status?code=' + encodeURIComponent(c.code)).then(function(st){
+    if (st.status !== 200){ setCard('err', 'Сервер недоступен'); return; }
+    if (!st.json.exists){ setCard('off', 'Код свободен — на сервере нет данных. Нажмите «Выгрузить сейчас».'); return; }
+    setCard('ok', 'На сервере: копия от ' + new Date(st.json.ts).toLocaleString() + (st.json.device ? (' · устройство: ' + st.json.device) : '') + ' · ' + Math.round((st.json.size || 0) / 1024) + ' KB');
+  }).catch(function(){ setCard('err', 'Нет связи с сервером'); });
+};
+window.cloudRestoreBackup = function(key){ restoreBackup(key); };
+window.cloudDeleteBackup = function(key){ deleteBackup(key); };
 })();
 </script>
 </body>
