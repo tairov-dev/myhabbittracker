@@ -1,8 +1,8 @@
 {
   "name": "discipline-tracker",
-  "version": "5.7.1",
+  "version": "6.5.0",
   "private": true,
-  "description": "DISCIPLINE.TRACKER v5.7 — одностраничное приложение + Node-сервер без зависимостей, готов к деплою на Render",
+  "description": "DISCIPLINE.TRACKER v6.5 — трекер + облачная синхронизация (единая база) + PWA + AI-ассистент, погода, новости, без зависимостей",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

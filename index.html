@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover">
 <title>DISCIPLINE.TRACKER</title>
-<!-- v6.3.0: PWA — трекер ставится как приложение (Android/iOS) и работает офлайн -->
+<!-- v6.5.0: PWA — трекер ставится как приложение (Android/iOS) и работает офлайн -->
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0F111A">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='48' x2='48' y2='0'%3E%3Cstop offset='0' stop-color='%2300D9FF'/%3E%3Cstop offset='1' stop-color='%239D4EDD'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M24 2 43 13v22L24 46 5 35V13Z' fill='%230F111A' stroke='url(%23g)' stroke-width='3' stroke-linejoin='round'/%3E%3Crect x='13' y='26' width='5' height='9' rx='2' fill='%2300D9FF' opacity='.75'/%3E%3Crect x='21.5' y='21' width='5' height='14' rx='2' fill='url(%23g)'/%3E%3Crect x='30' y='16' width='5' height='19' rx='2' fill='%239D4EDD' opacity='.9'/%3E%3Cpath d='M31.5 6.5l1.4 3.1 3.1 1.4-3.1 1.4-1.4 3.1-1.4-3.1-3.1-1.4 3.1-1.4Z' fill='%2300D9FF'/%3E%3C/svg%3E">
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1103,6 +1104,55 @@ a:hover{text-decoration:underline}
 .map-mark-row{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;transition:border-color .15s}
 .map-mark-row:hover{border-color:var(--accent)}
 </style>
+<style id="v65-styles">
+/* ===== v6.5.0: ГЛАВНАЯ — виджеты (вода / погода / новости) ===== */
+.home-widgets{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px}
+.water-cups{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.water-cup{width:30px;height:40px;cursor:pointer;transition:transform .15s;border:none;background:transparent;padding:0}
+.water-cup:hover{transform:scale(1.12)}
+.water-cup svg{width:100%;height:100%;display:block}
+.wx-now{display:flex;align-items:center;gap:14px}
+.wx-temp{font-size:38px;font-weight:800;font-family:'Montserrat',sans-serif;line-height:1}
+.wx-day{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.wx-day:last-child{border-bottom:none}
+.news-item{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;align-items:flex-start}
+.news-item:last-child{border-bottom:none}
+.news-item:hover .news-title{color:var(--accent)}
+.news-title{font-size:12.5px;font-weight:500;line-height:1.35}
+.news-meta{font-size:10px;color:var(--text-muted);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
+.news-src-chip{font-size:10.5px;padding:3px 10px;border-radius:20px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-muted);cursor:pointer}
+.news-src-chip.active{color:var(--accent);border-color:var(--accent)}
+/* ===== v6.5.0: пикер иконок — категории ===== */
+.icon-cats{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;max-height:76px;overflow-y:auto}
+.icon-cat-chip{font-size:10.5px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-muted);cursor:pointer;white-space:nowrap}
+.icon-cat-chip.active{color:var(--accent);border-color:var(--accent)}
+.icon-cat-head{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin:10px 0 4px;font-weight:600}
+/* ===== v6.5.0: AI чат ===== */
+.ai-chat{display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding:4px 2px}
+.ai-msg{max-width:88%;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.ai-msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#0F111A;border-bottom-right-radius:4px}
+.ai-msg.assistant{align-self:flex-start;background:var(--bg-input);border:1px solid var(--border);border-bottom-left-radius:4px}
+.ai-msg.typing{opacity:.55;font-style:italic}
+/* ===== v6.5.0: модалки — «Сохранить/Отмена» внизу, широкие ===== */
+.modal-footer{flex-wrap:wrap}
+.modal-footer .btn{flex:1 1 auto;min-width:140px;justify-content:center}
+/* ===== v6.5.0: снаряжение тренировок ===== */
+.equip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.equip-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 4px;background:var(--bg-input);border:1px solid var(--border);border-radius:10px;text-align:center;transition:border-color .2s,box-shadow .2s}
+.equip-tile:hover{border-color:var(--accent)}
+.equip-tile .text-xs{line-height:1.2}
+/* ===== v6.5.0: дневник — запись голоса ===== */
+.diary-voice-active{color:#E53935 !important;animation:pulse-rec 1s infinite}
+@keyframes pulse-rec{0%,100%{opacity:1}50%{opacity:.4}}
+/* ===== v6.5.0: соцсети в дневнике — пост без фона ===== */
+.diary-content blockquote{background:transparent !important;border:none !important;padding:0 !important;margin:8px 0}
+.diary-content iframe{background:transparent;border:none}
+/* ===== v6.5.0: детализированная анатомия (тренировки) ===== */
+.body-base ellipse,.body-base path{fill:var(--bg-input);stroke:var(--border-bright);stroke-width:1.6;stroke-linejoin:round}
+.body-lines path{fill:none;stroke:var(--border-bright);stroke-width:1;opacity:0.45;pointer-events:none}
+/* ===== v6.5.0: бейджи категорий своих шаблонов ===== */
+.tpl-cat-chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 8px;border-radius:12px;border:1px solid var(--border);margin-left:6px;vertical-align:middle}
+</style>
 </head>
 <body>
 <div class="app">
@@ -1110,7 +1160,8 @@ a:hover{text-decoration:underline}
   <div class="app-content-wrap">
   <header class="header">
     <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()" title="Меню" aria-label="Toggle sidebar"><span></span><span></span><span></span></button>
-    <div class="logo"><span class="logo-dot"></span>DISCIPLINE.TRACKER <span class="mono" style="font-size:9px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:1px 5px;vertical-align:middle">v6.3.0</span></div>
+    <div class="logo" style="display:flex;align-items:center;gap:9px"><svg width="26" height="26" viewBox="0 0 48 48" fill="none" aria-hidden="true" style="flex-shrink:0"><defs><linearGradient id="dtlogo65" x1="0" y1="48" x2="48" y2="0"><stop offset="0" stop-color="#00D9FF"/><stop offset="1" stop-color="#9D4EDD"/></linearGradient></defs><path d="M24 2 43 13v22L24 46 5 35V13Z" stroke="url(#dtlogo65)" stroke-width="3.2" stroke-linejoin="round"/><rect x="13" y="26" width="5" height="9" rx="2" fill="#00D9FF" opacity=".75"/><rect x="21.5" y="21" width="5" height="14" rx="2" fill="url(#dtlogo65)"/><rect x="30" y="16" width="5" height="19" rx="2" fill="#9D4EDD" opacity=".9"/><path d="M31.5 6.5l1.4 3.1 3.1 1.4-3.1 1.4-1.4 3.1-1.4-3.1-3.1-1.4 3.1-1.4Z" fill="#00D9FF"/></svg>
+      DISCIPLINE.TRACKER <span class="mono" style="font-size:9px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:1px 5px;vertical-align:middle">v6.5.0</span></div>
     <div class="header-stats">
       <span class="stat-lvl">LVL <span id="user-lvl">1</span></span>
       <div class="xp-bar"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
@@ -4286,18 +4337,122 @@ ICON_GROUPS.push(
   { title: '🎯 Хобби', icons: ['drone', 'telescope', 'microscope', 'pottery-wheel', 'knitting-needle', 'crochet-hook', 'sewing-machine', 'embroidery-hoop', 'calligraphy-brush', 'origami', 'paint-palette-knife', 'sculpting-clay', 'jewelry-wire', 'beading', 'candle-making', 'soap-making', 'terrarium', 'bonsai-tree', 'aquarium', 'ant-farm'] }
 );
 
+// ============================================================
+// v6.5.0: КАТЕГОРИИ ИКОНОК — весь пикер (1114+ иконок) разбит
+// на тематические категории. Классификация по EN-имени иконки
+// и по русскому названию (ICON_RU). «Везде» = единый пикер
+// используется во всех формах трекера (цели, привычки, финансы,
+// вылазки, закладки, карта, достижения).
+// ============================================================
+const ICON_CATS = [
+  { id:'sport', name:'Спорт и фитнес', en:['dumbbell','gym','bike','volleyball','football','basketball','tennis','skateboard','scooter','whistle','medal','trophy','timer','activity','heart-pulse','bicep','muscle','weight','ranking','target','crosshair','flag','swords','sword','spade','bik','run','workout','fitness','chart-no-axes-combined','ribbon','person-standing','footprints','mountain-snow'], ru:['спорт','фитнес','трениров','гантел','штанг','турник','мяч','наград','медал','кубок','бег','прыжок','плаван','велосипед','зарядк','похуден','атлет','сил'] },
+  { id:'food', name:'Еда и напитки', en:['apple','banana','beef','beer','wine','coffee','cup-soda','croissant','cake','candy','cookie','carrot','cherry','citrus','egg','fish','grape','ham','ice-cream','pizza','popcorn','salad','sandwich','soup','martini','milk','nut','donut','drumstick','wheat','utensils','chef','cooking-pot','glass-water','juice','lemon','lime','pepper','oven','microwave','refrigerator','snack','lollipop','tea','cup','glass','bottle','dish','plate','meal','breakfast','rice','curry','bean','corn','onion','potato','pumpkin','salami','shrimp','sorbet','soup','squash','berry','cherry','strawberry','watermelon','kiwi','mango','peach','pear','pineapple','avocado','broccoli','cabbage','cauliflower','celery','cucumber','garlic','ginger','lettuce','mushroom','olive','radish','asparagus','artichoke','bakery','cane','cheese','chocolate','donut','french','honey','jam','kebab','macaroni','mayonnaise','mustard','noodles','oil','pancakes','pasta','pastry','pie','pretzel','pudding','sauce','seasoning','syrup','toast','vinegar','yolk','food','frozen','ice','vitamin'], ru:['еда','кофе','чай','суп','пицц','торт','хлеб','яблок','банан','морков','рыб','напит','сок','завтрак','кухн','готов','обед','ужин','десерт','овощ','фрукт','мясо','сыр','молок','яйцо','шоколад','конфет','выпечк','бутерброд','салат','вода','лимон'] },
+  { id:'tech', name:'Технологии и IT', en:['cpu','code','binary','braces','bot','bug','chip','circuit','command','database','file-code','git','hard-drive','keyboard','laptop','monitor','mouse','motherboard','plug','printer','router','screen-share','server','smartphone','tablet','terminal','usb','webcam','wifi','antenna','bluetooth','broadcast','cable','radio','satellite','qr-code','computer','joystick','app-window','application','lambda','json','xml','code','compile','debug','deploy','docker','api','terminal','pc','phone','smartphone','sim','phoning','device','display','screen','pixel','joystick','nfc','rfid','ethernet','network','lan','wifi-cog','signal','tower','rss','cloud-cog','cloud-upload','cloud-download','function-square','variable','type','text-cursor','mouse-pointer','pointer','cursor','monitor-smartphone','monitor-speaker','pocket-knife'], ru:['код','программ','компьют','сервер','монитор','телефон','интернет','сеть','чат-бот','техник','гаджет','смартфон','ноутбук','приложен','сайт','разработ','база данных'] },
+  { id:'work', name:'Работа и бизнес', en:['briefcase','building','handshake','id-card','presentation','badge','clipboard','folder','archive','file','files','contract','invoice','chart-candlestick','task','project','meeting','office','corporate','agency','startup','report','portfolio','calendar-clock','clock-8','attach','paperclip','stamp','pen-tool','sign','notepad','book-user','clipboard-check','clipboard-list','file-check','file-text','file-plus','file-search','folder-open','folder-plus','folder-search','folder-check','notebook-tabs','presentation','printer','business','bag','briefcase-business','briefcase-conveyor-belt'], ru:['работ','бизнес','офис','документ','контракт','компани','портфел','папк','дело','проект','задач','отчёт','совещан','сотрудник','карьер','клиент','договор','резюме'] },
+  { id:'health', name:'Здоровье и медицина', en:['heart','stethoscope','pill','syringe','thermometer','hospital','bandage','ambulance','dna','virus','lungs','bone','eye','ear','wheelchair','vaccine','microscope','health','medical','cross','pill-bottle','test-tube','flask','bacteria','allergies','arm','handicap','pulse','heartbeat','smile-plus','tooth','organ','kidney','blood','donate','syringe'], ru:['здоров','доктор','врач','таблет','медицин','больниц','пульс','зуб','аптечк','лечение','диагноз','витамин','вес','давлен'] },
+  { id:'home', name:'Дом и быт', en:['home','house','bed','bath','door','lamp','armchair','sofa','tv','washing-machine','vacuum','blender','key','couch','lamp-desk','lamp-ceiling','iron','fence','garage','door-closed','door-open','bed-double','bed-single','bath','shower-head','soap','spray-can','brush','broom','bucket','trash-2','lamp','lights','switch','socket','plug-zap','spool','tent','lamp-wall-up','house-plug','house-plus','house-wifi','living','room','clean','repair'], ru:['дом','кварти','мебель','кроват','диван','светильник','стиральн','кухн','уборк','ремонт','комнат','быт','чистот','порядок','аренда'] },
+  { id:'nature', name:'Природа и погода', en:['sun','moon','cloud','snowflake','tornado','umbrella','wind','rainbow','droplet','sprout','tree','leaf','flower','rose','mountain','waves','volcano','earthquake','sunrise','sunset','moon-star','sparkles','rabbit','turtle','cat','dog','bird','squirrel','panda','bear','snail','insect','rat','hamster','fish-symbol','paw-print','cloudy','cloud-rain','cloud-snow','cloud-lightning','cloud-fog','cloud-drizzle','cloud-sun','cloud-moon','thermometer-sun','trees','forest','grass','flower-2','tornado','tropical','storm','sun-dim','sun-medium','sun-snow','sunrise','eclipse','star','star-half','shrub','wheat-off','egg-cracked','bird','bug-play','bug-off','ladybug','worm','ants','octagon-alert','shell','waves-ladder',' whale','orca','otter','rat','reptile','rhinoceros','rooster','swan','turtle','elephant','kangaroo','cow','chicken','penguin','duck','goose','hippo','gorilla','horse','raccoon','sheep','squirrel','dragon','origami','deciduous_tree'], ru:['погод','дожд','снег','солнц','луна','облак','дерево','цветок','животн','кот','собак','природ','гор','море','лист','весна','лето','осен','зима','небо','звезд'] },
+  { id:'people', name:'Люди и эмоции', en:['user','users','contact','smile','frown','laugh','meh','angry','sad','person-standing','hand','heart-handshake','face','drama','venetian-mask','baby','user-check','user-plus','user-x','user-cog','user-round','user-search','users-round','smile-plus','annoyed','confetti','crown','expressionless','grimace','grin','irk','laugh','lonely','love','meh','wink','annoyed','hand-heart','hand-helping','hand-metal','hand peace','handshake','helping','hug','kiss','profiles','circle-user','square-user','id-card','captions','accessibility','speech','megaphone','quote','message-circle-heart'], ru:['человек','пользователь','люди','улыбк','эмоци','лицо','команда','друг','семь','ребен','девушк','мужчин','пара','отношен','общение','встреча','презентац'] },
+  { id:'travel', name:'Транспорт и путешествия', en:['car','truck','bus','plane','ship','anchor','train','tram','fuel','globe','map','map-pin','compass','luggage','suitcase','passport','rocket','helicopter','taxi','car-front','tent','backpack','route','signpost','navigation','parking-circle','traffic-cone','sailboat','ferry','tractor','truck','plane-takeoff','plane-landing','caravan','train-front','tram-front','bus-front','bike','mountain','map-pinned','map','locate','navigation','luggage','explore','milestone','map-pin-check','map-pin-house','map-pin-plus','map-pin-x','map-minus','map-plus','waypoints','wind-turbine','life-buoy','compass'], ru:['машин','поезд','самолёт','корабль','путешеств','карта','транспорт','дорог','отпуск','тур','поход','кемпинг','билет','автобус','метро','такси'] },
+  { id:'fun', name:'Игры и развлечения', en:['gamepad','dices','puzzle','crown','ghost','piano','guitar','drum','music','headphones','mic','film','clapperboard','video','ticket','party-popper','balloon','joystick','cards','poker','lottery','dice','casino','game','play','pause','circle-play','tv-minimal-play','youtube','twitch','spotify','netflix','steam','playstation','xbox','epic-games','nintendo','segas','atari','arcade','controller','console','vr-headset','guitar','violin','saxophone','trumpet','accordion','banjo','maracas','amusement','ferris','roller','circus','carousel','slide','swing','kite','trampoline','bowling','darts','billiard','chess','checkers','domino','jigsaw','uno','monopoly','rubic','yo-yo','slime','story','theater','drama','concert','festival','disco','dance','karaoke','song','sing','album','track','playlist','podcast','audiobook','radio-tower','memo-music','music-2','music-3','music-4','list-music','file-music','mic-vocal','mic-2','audio-lines','disc-3','disc-2','disc','vinyl','boombox','speaker','volume','square-play','notebook-music'], ru:['игр','музык','кино','фильм','развлечен','гитар','песня','подарок','праздник','концерт','танц','караок','подкаст','стрим','ю' + 'туб','досуг','отдых','викторин'] },
+  { id:'study', name:'Учёба и книги', en:['book','graduation-cap','library','notebook','pen','pencil','highlighter','marker','journal','newspaper','calculator','languages','spell-check','lightbulb','school','brain','book-open','book-marked','book-copy','book-lock','book-heart','book-headphones','book-a','book-dashed','book-image','book-key','book-medium','book-open-check','book-open-text','book-text','book-type','notebook-pen','notebook-tabs','pen-line','pen-off','pen-tool','pencil-line','pencil-off','pencil-ruler','edit','eraser','feather','signature','file-pen','sticky-note','square-pen','flashlight','headscarf','backpack-school','abacus','at-sign','atomic','brain-circuit','brain-cog','chemistry','equation','formula','geometry','infinity','integral','sigma','square-sqrt','table-2','function','variables','degree','diploma','certificate','award','badge-check','scan-face','graduation','teach','lesson','course','student','study','read','learn','knowledge','memo','diary','library-big','library-square','grid-3x3','text-select','redo-dot','rotate-3d'], ru:['книг','учёб','учеба','школ','читат','наук','заметк','ручка','карандаш','конспект','урок','курс','экзамен','диплом','обучен','знан','словар','язык','университет','библиотек','мозг','разум'] },
+  { id:'money', name:'Деньги и финансы', en:['dollar','euro','yen','pound-sterling','banknote','coins','credit-card','wallet','piggy-bank','receipt','chart','trending-up','trending-down','pie-chart','bar-chart','line-chart','area-chart','candlestick-chart','percent','badge-dollar-sign','circle-dollar-sign','bitcoin','british-pound','swiss-franc','currency','finance','money','cash','salary','budget','invoice','financial','investment','profit','loss','savings','loan','donate','gift-card','shopping-cart','shopping-bag','shopping-basket','store','tag','tags','ticket-percent','stock','swap','arrow-right-left','scale','hand-coins','coins','banknote-arrow','landmark','university'], ru:['деньг','платёж','бюджет','банк','цен','стоимост','продаж','доход','расход','финанс','заработ','зарплат','инвести','эконом','копилк','покупк','магазин','курс валют'] },
+  { id:'tools', name:'Инструменты и ремонт', en:['hammer','wrench','screwdriver','axe','saw','paintbrush','paint-roller','ruler','hard-hat','shovel','cog','settings','anvil','drill','tool','repair','fix','bolt','screw','wrench','gavel','magnet','plug','battery','bolt','zap','flashlight','fuse','fire-extinguisher','scissors','knife','slice','scalpel','spade','fork','spatula','ladle','scale','weight','hook','hand-platter','grill','flame','flame-kindling','amperage','cable-car','car-front','fuse','gauge','file-cog','filter','sliders','toggle','switch-camera','switch','config','adjust','wrench','hammer','pickaxe','shovel','jackhammer','bulldozer','excavator','crane','conveyor','forklift','factory','industry','warehouse','server-cog','cpu','circuit-board','microchip','microcontroller','robot','android','chrome','linux','apple','fingerprint'], ru:['инструмент','ремонт','молоток','отвёртк','настройк','гайка','болт','строитель','мастер','техник','сборк','разборк','станок','механизм'] },
+  { id:'security', name:'Безопасность', en:['shield','lock','unlock','fingerprint','eye-off','scan-face','siren','key','vault','door-locked','lock-keyhole','lock-open','shield-alert','shield-ban','shield-check','shield-ellipsis','shield-half','shield-minus','shield-off','shield-plus','shield-question','shield-x','luggage-locked','scan-eye','square-scissors','eye','eye-off','view','watch','observation','surveillance','cctv','camera','cctv','webcam','door-lock','latch','bolt-lock','guard','protect','defense','security','privacy','anonymous','incognito','password','access','permission','admin','verified','certified','trusted','license','permit','patent','copyright','trademark','registered'], ru:['безопасн','защит','ключ','замок','пароль','приватност','тайн','скрыт','доступ'] },
+  { id:'time', name:'Время и календарь', en:['calendar','clock','hourglass','watch','history','timer','alarm','date','time','month','week','day','schedule','calendar-check','calendar-days','calendar-heart','calendar-minus','calendar-off','calendar-plus','calendar-range','calendar-search','calendar-sync','calendar-x','clock-1','clock-2','clock-3','clock-4','clock-5','clock-6','clock-7','clock-8','clock-9','clock-10','clock-11','clock-12','watch','sandglass','stopwatch','egg-timer','timeline','timezone','deadline','planning','routine','period','cycle','frequency','duration','moment','instant','time-limit','countdown','minute','second','hour','year','today','tomorrow','yesterday','future','past','present','lifetime','age','anniversary','birthday','holiday','weekend','workday','off-day','vacation-days'], ru:['время','календар','час','дата','минут','секунд','расписание','срок','дедлайн','утро','вечер','ночь','день недели','план на'] },
+  { id:'ui', name:'Символы и интерфейс', en:['plus','check','chevron','arrow','circle','square','dot','menu','filter','search','bookmark','tag','link','share','send','mail','message','chat','bell','info','alert','help','copy','scissors','trash','undo','redo','refresh','rotate','zoom','maximize','minimize','external-link','download','upload','save','log-in','log-out','power','sliders','toggle','layout','grid','list','panel','columns','rows','split','x','minus','divide','equal','percent','infinity','hash','at-sign','ampersand','asterisk','copyright','trademark','heart-crack','heart-minus','heart-off','heart-plus','thumb-up','thumb-down','pin','pushpin','unpin','flag-off','flag-triangle','bookmark-check','bookmark-minus','bookmark-plus','bookmark-x','circle-check','circle-x','circle-plus','circle-minus','octagon','triangle','diamond','pentagon','hexagon','heptagon','octagon','square-check','square-x','square-plus','square-minus','asterisk','badge-check','egg','shell','banana','cake','candy','cookie','croissant','cup-soda','donut','ice-cream','sandwich','pizza','salad','soup'], ru:['символ','интерфейс','стрелк','кнопк','меню','поиск','галочк','добавить','удалить','изменить','открыть','закрыть','ссылк','поделит','отправ','почт','уведомлен','важно','внимание'] },
+  { id:'creative', name:'Творчество', en:['palette','brush','paintbrush','pencil','pen','airbrush','art','design','draw','paint','color','image','images','picture','photo','camera','aperture','focus','frame','crop','rotate-3d','flip-horizontal','flip-vertical','scissors','copy-plus','sticker','emoji','smile','shapes','shape','square-round','circle-dashed','spline','pen-tool','swatch-book','paint-bucket','paint-roller','palette','vector-bezier','bezier','crop','expand','frame','grid-2x2','layout-dashboard','layout-grid','layout-list','layout-panel','layout-template','blend','contrast','droplet','feather','fingerprint','flame','gem','glass','glossy','gradient','hologram','ink','lacquer','magnet','marble','metal','neon','origami','pattern','poster','print','stencil','texture','vignette','watercolor','wood','yarn','canvas','easel','mural','sculpture','statue','mosaic','collage','sketch','draft','doodle','scribble','doodle','compose','create','inspiration','idea','imagination','aesthetic','beauty','style','fashion','outfit','sewing','needle','thread','knit','crochet','weaving','embroidery','beads','jewelry','diamond','gem','crystal','pottery','ceramic','clay','kiln','sculpt','carve','engrave','etch','craft','diy','handmade','artisan','handcraft'], ru:['творчеств','дизайн','рисован','художеств','краски','палитр','рисунок','иллюстрац','фото','камера','стикер','рукодел','вязан','шитьё','вышивк','украшен','бисер','гончарн','лепк','поделк','своими руками','скетч','идея','вдохновен'] }
+];
+function iconCatOf(n){
+  window.__iconCatCache = window.__iconCatCache || {};
+  if (window.__iconCatCache[n]) return window.__iconCatCache[n];
+  const ru = (iconRuLabel(n) || '').toLowerCase();
+  const en = String(n || '').toLowerCase();
+  let cat = 'other';
+  for (const c of ICON_CATS){
+    let hit = false;
+    for (const k of c.en){ if (en.indexOf(k) >= 0){ hit = true; break; } }
+    if (!hit){ for (const k of c.ru){ if (ru.indexOf(k) >= 0){ hit = true; break; } } }
+    if (hit){ cat = c.id; break; }
+  }
+  window.__iconCatCache[n] = cat;
+  return cat;
+}
+function iconCellHtml(n, selected, cat){
+  const ru = iconRuLabel(n);
+  return '<div class="icon-cell ' + (n === selected ? 'selected' : '') + '" data-icon-name="' + n + '" data-icon-ru="' + escapeHtml(ru.toLowerCase()) + '" data-cat="' + cat + '" onclick="pickIcon(\'' + n + '\', this)" title="' + escapeHtml(ru) + '">' + SVG(n, 26) + '</div>';
+}
+function iconPickerGridHtml(selected){
+  const allIcons = getPickerIconList();
+  const cur = window.__iconPickerCat || 'all';
+  const countBy = {};
+  allIcons.forEach(n => { const c = iconCatOf(n); countBy[c] = (countBy[c] || 0) + 1; });
+  const cats = [['all','Все',allIcons.length]].concat(ICON_CATS.map(c => [c.id, c.name, countBy[c.id] || 0])).concat([['other','Другое',countBy.other || 0]]);
+  const chips = cats.map(c =>
+    '<button type="button" class="icon-cat-chip' + (c[0] === cur ? ' active' : '') + '" onclick="iconPickerSetCat(\'' + c[0] + '\')">' + c[1] + ' · ' + c[2] + '</button>'
+  ).join('');
+  const gridCss = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:4px';
+  let body = '';
+  if (cur === 'all'){
+    ICON_CATS.forEach(c => {
+      const icons = allIcons.filter(n => iconCatOf(n) === c.id);
+      if (!icons.length) return;
+      body += '<div class="icon-cat-head" data-icon-cat-head="' + c.id + '">' + c.name + ' · ' + icons.length + '</div>'
+        + '<div style="' + gridCss + '">' + icons.map(n => iconCellHtml(n, selected, c.id)).join('') + '</div>';
+    });
+    const other = allIcons.filter(n => iconCatOf(n) === 'other');
+    if (other.length){
+      body += '<div class="icon-cat-head" data-icon-cat-head="other">Другое · ' + other.length + '</div>'
+        + '<div style="' + gridCss + '">' + other.map(n => iconCellHtml(n, selected, 'other')).join('') + '</div>';
+    }
+  } else {
+    const list = cur === 'other' ? allIcons.filter(n => iconCatOf(n) === 'other') : allIcons.filter(n => iconCatOf(n) === cur);
+    body = '<div style="' + gridCss + '">' + list.map(n => iconCellHtml(n, selected, cur)).join('') + '</div>';
+  }
+  const listCount = (cur === 'all') ? allIcons.length : allIcons.filter(n => iconCatOf(n) === cur).length;
+  return '<div class="icon-cats">' + chips + '</div>'
+    + '<div class="icon-grid" id="icon-picker" data-icon="' + selected + '" style="display:block;max-height:300px;overflow-y:auto;padding:4px">'
+    + '<input type="text" class="form-input" placeholder="🔍 Поиск иконки на русском… (всего ' + allIcons.length + ' в ' + (ICON_CATS.length + 1) + ' категориях)" value="' + escapeHtml(window.__iconPickerQ || '') + '" oninput="window.__iconPickerQ=this.value;filterIconPicker(this.value)" style="margin-bottom:8px;width:100%;box-sizing:border-box">'
+    + '<div class="text-xs text-muted" style="margin-bottom:6px">Показано: <span id="icon-picker-count">' + listCount + '</span> из ' + allIcons.length + ' · категории · поиск А-Я (рус)</div>'
+    + body
+    + '</div>';
+}
+function renderIconPicker(selected){
+  // v6.5.0: пикер с категориями — чипсы категорий + сгруппированная сетка.
+  if (typeof window.__iconPickerQ !== 'string') window.__iconPickerQ = '';
+  window.__iconPickerCat = window.__iconPickerCat || 'all';
+  return '<div id="icon-picker-root">' + iconPickerGridHtml(selected) + '</div>';
+}
+function iconPickerSetCat(cat){
+  window.__iconPickerCat = cat;
+  iconPickerRefresh();
+}
+function iconPickerRefresh(){
+  const root = document.getElementById('icon-picker-root');
+  if (!root) return;
+  const grid = root.querySelector('.icon-grid');
+  const sel = grid ? (grid.getAttribute('data-icon') || '') : '';
+  root.innerHTML = iconPickerGridHtml(sel);
+}
 // Search input handler — called via oninput. v5.7 Req #10: searches by RUSSIAN name AND technical name.
+// v6.5.0: also hides empty category headers while searching.
 function filterIconPicker(q){
   q = (q||'').toLowerCase().trim();
   const picker = document.getElementById('icon-picker');
   if (!picker) return;
   let visible = 0;
+  const groups = {};
   picker.querySelectorAll('.icon-cell').forEach(c => {
     const name = (c.getAttribute('data-icon-name') || '').toLowerCase();
     const ru = (c.getAttribute('data-icon-ru') || '').toLowerCase();
     const hit = !q || ru.indexOf(q) >= 0 || name.indexOf(q) >= 0;
     c.style.display = hit ? '' : 'none';
-    if (hit) visible++;
+    if (hit){ visible++; const g = c.getAttribute('data-cat') || 'other'; (groups[g] = (groups[g] || 0) + 1); }
+  });
+  picker.querySelectorAll('[data-icon-cat-head]').forEach(h => {
+    const g = h.getAttribute('data-icon-cat-head');
+    const cnt = groups[g] || 0;
+    h.style.display = (q && cnt === 0) ? 'none' : '';
   });
   const counter = document.getElementById('icon-picker-count');
   if (counter) counter.textContent = visible;
@@ -4315,20 +4470,6 @@ function getPickerIconList(){
   list.sort((a, b) => iconRuLabel(a).localeCompare(iconRuLabel(b), 'ru'));
   window.__pickerIconListCache = list;
   return list;
-}
-function renderIconPicker(selected){
-  // v5.7 Req #10: flat grid sorted by Russian name; search matches RU + EN.
-  const allIcons = getPickerIconList();
-  const cells = allIcons.map(n => {
-    const ru = iconRuLabel(n);
-    const iconSvg = SVG(n, 26);
-    return '<div class="icon-cell ' + (n===selected?'selected':'') + '" data-icon-name="' + n + '" data-icon-ru="' + escapeHtml(ru.toLowerCase()) + '" onclick="pickIcon(\'' + n + '\', this)" title="' + escapeHtml(ru) + '">' + iconSvg + '</div>';
-  }).join("");
-  return `<div class="icon-grid" id="icon-picker" data-icon="${selected}" style="display:block;max-height:300px;overflow-y:auto;padding:4px">
-    <input type="text" class="form-input" placeholder="🔍 Поиск иконки на русском… (всего ${allIcons.length})" oninput="filterIconPicker(this.value)" style="margin-bottom:8px;width:100%;box-sizing:border-box">
-    <div class="text-xs text-muted" style="margin-bottom:6px">Показано: <span id="icon-picker-count">${allIcons.length}</span> · сортировка А-Я (рус)</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:4px">${cells}</div>
-  </div>`;
 }
 function pickIcon(name, el){
   const p = el.closest('.icon-grid');
@@ -4470,7 +4611,7 @@ function renderUserStats(){
 // ============================================================
 // TAB SWITCHING
 // ============================================================
-const TABS = ['profile','goals','q_tasks','m_tasks','w_tasks','work_sched','discipline','templates','physical','weight','mental','outings','games','bookmarks','production','movies','books','learning','events','time','finance','skills','achievements','diary','map','settings'];
+const TABS = ['profile','goals','q_tasks','m_tasks','w_tasks','work_sched','discipline','templates','physical','weight','mental','outings','games','bookmarks','production','movies','books','learning','events','time','finance','skills','achievements','diary','map','ai','settings'];
 // Metadata for each tab: short label + icon name. Order matches TABS.
 const TAB_META = {
   profile:     { label: 'Профиль',    icon: 'user',         num: '01' },
@@ -4498,7 +4639,8 @@ const TAB_META = {
   achievements:{ label: 'Достижения', icon: 'trophy',         num: '23' },
   diary:       { label: 'Дневник',    icon: 'book',           num: '24' },
   map:         { label: 'Карта',      icon: 'map',            num: '25' },
-  settings:    { label: 'Настройки',  icon: 'settings',       num: '26' }
+  ai:          { label: 'AI',         icon: 'sparkles',       num: '26' },
+  settings:    { label: 'Настройки',  icon: 'settings',       num: '27' }
 };
 function renderTopNav(){
   const nav = document.getElementById('top-nav');
@@ -4533,7 +4675,7 @@ function setupNavTooltips(){
     outings: 'Вылазки', games: 'Игры', bookmarks: 'Закладки', production: 'Биты',
     movies: 'Кино', books: 'Книги', learning: 'Обучение', events: 'События',
     time: 'Время', finance: 'Финансы', skills: 'Навыки', achievements: 'Достижения',
-    diary: 'Дневник', map: 'Карта', settings: 'Настройки'
+    diary: 'Дневник', map: 'Карта', ai: 'AI Ассистент', settings: 'Настройки'
   };
   document.querySelectorAll('.nav-item').forEach(item => {
     const tab = item.getAttribute('data-tab');
@@ -4782,47 +4924,99 @@ const TEMPLATE_CATEGORIES = [
   ['Прочее',       '#8e8f92', 'list']
 ];
 const BODY_SVG_HTML = `
-<svg viewBox="0 0 200 400" style="width:100%;max-width:280px;height:auto;margin:0 auto;display:block">
-  <!-- Head -->
-  <circle cx="100" cy="35" r="22" fill="var(--border)" stroke="var(--border-bright)"/>
-  <!-- Neck -->
-  <path class="muscle-path" data-muscle="neck" d="M90 55 L110 55 L112 75 L88 75 Z"/>
-  <!-- Traps -->
-  <path class="muscle-path" data-muscle="traps" d="M75 75 Q100 65 125 75 L130 90 Q100 85 70 90 Z"/>
-  <!-- Chest -->
-  <path class="muscle-path" data-muscle="chest" d="M70 95 L95 95 Q100 100 105 95 L130 95 L130 135 L70 135 Z"/>
-  <!-- Shoulders L/R -->
-  <path class="muscle-path" data-muscle="shoulders" d="M65 90 Q55 95 55 110 L70 110 L75 95 Z"/>
-  <path class="muscle-path" data-muscle="shoulders" d="M135 90 Q145 95 145 110 L130 110 L125 95 Z"/>
-  <!-- Biceps L/R -->
-  <path class="muscle-path" data-muscle="biceps" d="M55 115 Q45 130 48 150 L60 150 L62 120 Z"/>
-  <path class="muscle-path" data-muscle="biceps" d="M145 115 Q155 130 152 150 L140 150 L138 120 Z"/>
-  <!-- Triceps L/R -->
-  <path class="muscle-path" data-muscle="triceps" d="M40 120 Q35 145 42 160 L52 158 L55 130 Z"/>
-  <path class="muscle-path" data-muscle="triceps" d="M160 120 Q165 145 158 160 L148 158 L145 130 Z"/>
-  <!-- Forearms L/R -->
-  <path class="muscle-path" data-muscle="forearms" d="M40 165 Q35 195 42 220 L55 220 L52 165 Z"/>
-  <path class="muscle-path" data-muscle="forearms" d="M160 165 Q165 195 158 220 L145 220 L148 165 Z"/>
-  <!-- Abs -->
-  <path class="muscle-path" data-muscle="abs" d="M80 140 L120 140 L120 215 L80 215 Z"/>
-  <!-- Back (obliques) -->
-  <path class="muscle-path" data-muscle="back" d="M70 140 L80 140 L80 215 L70 215 Z"/>
-  <path class="muscle-path" data-muscle="back" d="M120 140 L130 140 L130 215 L120 215 Z"/>
-  <!-- Lats (sides) -->
-  <path class="muscle-path" data-muscle="lats" d="M70 215 L80 215 L80 240 L70 240 Z"/>
-  <path class="muscle-path" data-muscle="lats" d="M120 215 L130 215 L130 240 L120 240 Z"/>
-  <!-- Glutes -->
-  <path class="muscle-path" data-muscle="glutes" d="M75 245 Q100 240 125 245 L130 280 Q100 290 70 280 Z"/>
-  <!-- Quads L/R -->
-  <path class="muscle-path" data-muscle="quads" d="M75 285 Q80 285 85 285 L92 285 L92 360 L75 360 Z"/>
-  <path class="muscle-path" data-muscle="quads" d="M108 285 Q115 285 125 285 L125 360 L108 360 Z"/>
-  <!-- Hamstrings L/R -->
-  <path class="muscle-path" data-muscle="hamstrings" d="M70 285 L75 285 L75 360 L62 360 Q60 320 70 285 Z"/>
-  <path class="muscle-path" data-muscle="hamstrings" d="M125 285 L130 285 Q140 320 138 360 L125 360 Z"/>
-  <!-- Calves L/R -->
-  <path class="muscle-path" data-muscle="calves" d="M62 365 L75 365 L75 395 L60 395 Z"/>
-  <path class="muscle-path" data-muscle="calves" d="M125 365 L138 365 L140 395 L125 395 Z"/>
-  <!-- Labels (hover text only) -->
+<svg viewBox="0 0 240 520" style="width:100%;max-width:300px;height:auto;margin:0 auto;display:block">
+  <defs>
+    <linearGradient id="bodyShade65" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000" stop-opacity="0.18"/>
+      <stop offset="0.5" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.18"/>
+    </linearGradient>
+  </defs>
+  <!-- ================= БАЗОВЫЙ СИЛУЭТ (не кликается) ================= -->
+  <g class="body-base">
+    <!-- голова с ушами и волосами -->
+    <ellipse cx="120" cy="38" rx="20" ry="24"/>
+    <path d="M100 36 Q100 12 120 12 Q140 12 140 36 Q140 24 120 22 Q100 24 100 36 Z"/>
+    <ellipse cx="99" cy="40" rx="3.4" ry="5.5"/>
+    <ellipse cx="141" cy="40" rx="3.4" ry="5.5"/>
+    <!-- шея -->
+    <path d="M108 58 L132 58 L134 76 L106 76 Z"/>
+    <!-- туловище -->
+    <path d="M106 74 Q86 80 76 92 Q68 104 66 120 Q62 152 62 190 L66 200 L84 200 L88 208 L96 200 L96 216 L120 222 L144 216 L144 200 L152 208 L156 200 L174 200 L178 190 Q178 152 174 120 Q172 104 164 92 Q154 80 134 74 Z"/>
+    <!-- руки -->
+    <path d="M70 112 Q58 130 60 156 Q62 184 66 200 L84 200 Q80 176 82 152 Q84 130 90 114 Z"/>
+    <path d="M170 112 Q182 130 180 156 Q178 184 174 200 L156 200 Q160 176 158 152 Q156 130 150 114 Z"/>
+    <path d="M66 202 L84 202 L81 224 Q74 230 68 223 Z"/>
+    <path d="M156 202 L174 202 L172 224 Q166 230 159 223 Z"/>
+    <!-- ноги -->
+    <path d="M96 216 L120 222 L144 216 L148 252 L150 300 L146 344 L140 372 L128 374 L126 300 L120 260 L114 300 L112 374 L100 372 L94 344 L90 300 L92 252 Z"/>
+    <path d="M100 374 L112 373 L112 398 L114 428 L104 430 Q98 414 99 398 Z"/>
+    <path d="M128 374 L140 372 L141 398 L136 430 L126 428 L128 398 Z"/>
+    <path d="M104 431 L116 429 L118 444 Q116 452 104 452 Q96 452 98 442 Z"/>
+    <path d="M124 429 L136 431 L142 442 Q144 452 136 452 Q124 452 122 444 Z"/>
+  </g>
+  <!-- ================= МЫШЦЫ (кликаются) ================= -->
+  <!-- трапеции -->
+  <path class="muscle-path" data-muscle="traps" d="M96 76 Q120 64 144 76 L148 90 Q120 80 92 90 Z"/>
+  <!-- дельты -->
+  <path class="muscle-path" data-muscle="shoulders" d="M92 80 Q76 88 72 106 Q78 114 90 112 Q92 96 96 84 Z"/>
+  <path class="muscle-path" data-muscle="shoulders" d="M148 80 Q164 88 168 106 Q162 114 150 112 Q148 96 144 84 Z"/>
+  <!-- грудь: две пластины + центральная линия -->
+  <path class="muscle-path" data-muscle="chest" d="M92 94 L117 98 L117 134 Q102 136 90 128 Q86 110 92 94 Z"/>
+  <path class="muscle-path" data-muscle="chest" d="M148 94 L123 98 L123 134 Q138 136 150 128 Q154 110 148 94 Z"/>
+  <!-- бицепс / трицепс -->
+  <path class="muscle-path" data-muscle="biceps" d="M74 112 Q64 128 66 150 L82 152 Q84 130 88 114 Z"/>
+  <path class="muscle-path" data-muscle="biceps" d="M166 112 Q176 128 174 150 L158 152 Q156 130 152 114 Z"/>
+  <path class="muscle-path" data-muscle="triceps" d="M66 116 Q58 136 62 156 L70 156 Q68 136 70 120 Z"/>
+  <path class="muscle-path" data-muscle="triceps" d="M174 116 Q182 136 178 156 L170 156 Q172 136 170 120 Z"/>
+  <!-- предплечья -->
+  <path class="muscle-path" data-muscle="forearms" d="M64 158 Q60 180 66 200 L84 200 Q80 180 82 158 Z"/>
+  <path class="muscle-path" data-muscle="forearms" d="M176 158 Q180 180 174 200 L156 200 Q160 180 158 158 Z"/>
+  <!-- пресс: 3 ряда x 2 колонки -->
+  <path class="muscle-path" data-muscle="abs" d="M102 140 L117 140 L117 158 L102 158 Z"/>
+  <path class="muscle-path" data-muscle="abs" d="M123 140 L138 140 L138 158 L123 158 Z"/>
+  <path class="muscle-path" data-muscle="abs" d="M102 161 L117 161 L117 179 L102 179 Z"/>
+  <path class="muscle-path" data-muscle="abs" d="M123 161 L138 161 L138 179 L123 179 Z"/>
+  <path class="muscle-path" data-muscle="abs" d="M102 182 L117 182 L117 200 L102 200 Z"/>
+  <path class="muscle-path" data-muscle="abs" d="M123 182 L138 182 L138 200 L123 200 Z"/>
+  <!-- косые / спина по бокам -->
+  <path class="muscle-path" data-muscle="back" d="M88 128 Q96 130 98 134 Q100 168 98 200 L92 200 Q88 164 88 128 Z"/>
+  <path class="muscle-path" data-muscle="back" d="M152 128 Q144 130 142 134 Q140 168 142 200 L148 200 Q152 164 152 128 Z"/>
+  <!-- широчайшие -->
+  <path class="muscle-path" data-muscle="lats" d="M78 108 Q86 112 88 122 Q90 140 90 152 L80 148 Q76 128 78 108 Z"/>
+  <path class="muscle-path" data-muscle="lats" d="M162 108 Q154 112 152 122 Q150 140 150 152 L160 148 Q164 128 162 108 Z"/>
+  <!-- тазобедренная зона (ягодичные в стойке анфас) -->
+  <path class="muscle-path" data-muscle="glutes" d="M96 204 L117 204 L117 220 Q106 222 96 214 Z"/>
+  <path class="muscle-path" data-muscle="glutes" d="M144 204 L123 204 L123 220 Q134 222 144 214 Z"/>
+  <!-- квадрицепсы: латеральная + медиальная головки -->
+  <path class="muscle-path" data-muscle="quads" d="M94 220 Q90 252 94 284 L108 284 L110 222 Z"/>
+  <path class="muscle-path" data-muscle="quads" d="M146 220 Q150 252 146 284 L132 284 L130 222 Z"/>
+  <path class="muscle-path" data-muscle="quads" d="M96 224 L106 226 L104 260 L96 258 Z" style="opacity:0.55"/>
+  <path class="muscle-path" data-muscle="quads" d="M144 224 L134 226 L136 260 L144 258 Z" style="opacity:0.55"/>
+  <!-- колени -->
+  <path class="muscle-path" data-muscle="quads" d="M96 288 L110 288 L110 300 L96 300 Z" style="opacity:0.7"/>
+  <path class="muscle-path" data-muscle="quads" d="M144 288 L130 288 L130 300 L144 300 Z" style="opacity:0.7"/>
+  <!-- бицепс бедра (виден по бокам) -->
+  <path class="muscle-path" data-muscle="hamstrings" d="M92 240 Q90 268 94 296 L98 296 Q94 268 96 240 Z" style="opacity:0.8"/>
+  <path class="muscle-path" data-muscle="hamstrings" d="M148 240 Q150 268 146 296 L142 296 Q146 268 144 240 Z" style="opacity:0.8"/>
+  <!-- икры: две головки -->
+  <path class="muscle-path" data-muscle="calves" d="M94 302 Q90 322 96 342 L108 342 L110 304 Z"/>
+  <path class="muscle-path" data-muscle="calves" d="M146 302 Q150 322 144 342 L132 342 L130 304 Z"/>
+  <!-- ================= ДЕТАЛИЗАЦИЯ (линии и тени) ================= -->
+  <g class="body-lines">
+    <path d="M104 74 Q112 80 120 80 Q128 80 136 74"/>
+    <path d="M96 84 Q86 92 80 104"/>
+    <path d="M144 84 Q154 92 160 104"/>
+    <path d="M117 98 L117 134"/>
+    <path d="M92 130 Q102 138 117 134"/>
+    <path d="M148 130 Q138 138 123 134"/>
+    <path d="M120 222 L120 258"/>
+    <path d="M96 300 Q102 306 110 302"/>
+    <path d="M144 300 Q138 306 130 302"/>
+    <path d="M92 344 Q104 350 114 344"/>
+    <path d="M148 344 Q136 350 126 344"/>
+  </g>
+  <rect x="60" y="12" width="120" height="446" fill="url(#bodyShade65)" pointer-events="none" style="border-radius:20px"/>
 </svg>
 `;
 const BRAIN_SVG_HTML = `
@@ -6027,13 +6221,21 @@ function(){
       <button class="btn btn-sm" onclick="loadAndStartRoutine('${d}')" title="Начать тренировку по этому шаблону">${SVG('play',11)} ▶</button>
     </div>`;
   }).join('');
+  // v6.5.0: фильтр своих шаблонов по категории Улица/Дом/Зал
+  if (typeof window.__tplCat !== 'string') window.__tplCat = 'all';
+  const tplCat = window.__tplCat;
+  const tplTypeLabel = (t) => ({street:'🌳 Улица',home:'🏠 Дом',gym:'💪 Зал',custom:'⚙️ Своё'})[t] || '⚙️ Своё';
+  const shownTemplates = tplCat === 'all' ? customTemplates : customTemplates.filter(t => (t.type || 'custom') === tplCat);
+  const tplCatChips = [['all','Все'],['street','🌳 Улица'],['home','🏠 Дом'],['gym','💪 Зал']].map(c =>
+    `<button class="btn btn-sm ${tplCat===c[0]?'btn-primary':''}" style="padding:3px 10px;font-size:11px" onclick="window.__tplCat='${c[0]}';refreshTab('physical')">${c[1]}</button>`
+  ).join('');
   // v5.5 Req #4e: custom templates list
-  const customTemplatesHtml = customTemplates.length ? customTemplates.map(t => {
+  const customTemplatesHtml = shownTemplates.length ? shownTemplates.map(t => {
     const exNames = (t.exercises||[]).map(id => (EXERCISES_DB.find(e=>e.id===id)||{}).name || id).slice(0, 4).join(', ');
     const moreCount = (t.exercises||[]).length - 4;
-    return `<div class="card" style="border-left:3px solid var(--accent-2)">
-      <div style="font-weight:700">${escapeHtml(t.name)}</div>
-      <div class="text-xs text-muted mt-2">${escapeHtml(t.type||'custom')} · ${(t.exercises||[]).length} упражнений · отдых ${t.restTime||60}с</div>
+    return `<div class="card" style="border-left:3px solid ${t.type==='street'?'#16a7a1':t.type==='home'?'#ea6d30':'var(--accent-2)'}">
+      <div style="font-weight:700">${escapeHtml(t.name)}<span class="tpl-cat-chip" style="color:var(--accent);border-color:var(--accent)">${tplTypeLabel(t.type)}</span></div>
+      <div class="text-xs text-muted mt-2">${tplTypeLabel(t.type)} · ${(t.exercises||[]).length} упражнений · отдых ${t.restTime||60}с</div>
       ${t.description?`<div class="text-xs text-muted mt-1">${escapeHtml(t.description)}</div>`:''}
       <div class="text-xs text-muted mt-1">Упражнения: ${escapeHtml(exNames)}${moreCount>0?(' +' + moreCount):''}</div>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
@@ -6050,15 +6252,27 @@ function(){
     const tplName = allWorkoutTemplates.find(t => t.id === h.templateId)?.name || 'Своё упражнение';
     return `<div class="exercise-row"><div><div style="font-weight:600">${SVG('dumbbell',12)} ${escapeHtml(tplName)}</div><div class="exercise-meta"><span>${h.exercises?.length||0} упражнений</span><span class="text-muted">${h.date} · ${h.duration||0} мин</span></div></div><span class="tag success">${SVG('check',9)} завершено</span></div>`;
   }).join('') || '<div class="text-xs text-muted">Нет завершённых тренировок</div>';
-  // equipment
+  // v6.5.0: расширенное снаряжение (18 позиций)
   const equipment = [
     {name:'Своё тело', icon:'activity'},
-    {name:'Воркаут-площадка', icon:'flag'},
-    {name:'Скамья', icon:'home'},
     {name:'Турник', icon:'arrow-up'},
     {name:'Брусья', icon:'layers'},
-    {name:'Гантели', icon:'dumbbell'}
-  ].map(e => `<div style="display:flex;flex-direction:column;align-items:center;padding:12px;background:var(--bg-input);border:1px solid var(--border);clip-path:var(--clip-cut-sm)"><span style="color:var(--accent)">${SVG(e.icon,24)}</span><span class="text-xs mt-2">${e.name}</span></div>`).join('');
+    {name:'Воркаут-площадка', icon:'flag'},
+    {name:'Гантели', icon:'dumbbell'},
+    {name:'Штанга', icon:'dumbbell'},
+    {name:'Гири', icon:'flame'},
+    {name:'Скамья', icon:'home'},
+    {name:'Резинки', icon:'route'},
+    {name:'Эспандер', icon:'grip'},
+    {name:'Скакалка', icon:'zap'},
+    {name:'Кольца', icon:'circle-tool'},
+    {name:'TRX-петли', icon:'wifi'},
+    {name:'Фитбол', icon:'circle-tool'},
+    {name:'Ролик', icon:'refresh'},
+    {name:'Коврик', icon:'square-tool'},
+    {name:'Вело/Дорожка', icon:'bike'},
+    {name:'Пояс/Лямки', icon:'link'}
+  ].map(e => `<div class="equip-tile"><span style="color:var(--accent)">${SVG(e.icon,22)}</span><span class="text-xs">${e.name}</span></div>`).join('');
   // v5.5 Req #4c: virtualized exercise list — store all exercise data on window for the scroll handler.
   window.__physExercises = exercises.map(e => ({
     id: e.id, name: e.name, type: e.type, sets: e.sets, difficulty: e.difficulty, calories: e.calories,
@@ -6115,7 +6329,12 @@ function(){
     </div>
   </div>
   <div class="card mt-4">
-    <div class="section-title"><span class="dot"></span>Свои шаблоны тренировок</div>
+    <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:6px"><span class="dot"></span>Свои шаблоны тренировок</span>
+      <button class="btn btn-primary btn-sm" onclick="openCustomWorkoutTemplateForm()">${SVG('plus',12)} Составить тренировку</button>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${tplCatChips}</div>
+    <div class="text-xs text-muted mb-2">Конструктор: соберите свою тренировку из любых упражнений и отнесите её к категории «Улица» или «Дом» (есть и «Зал»).</div>
     <div class="card-grid cols-3">${customTemplatesHtml}</div>
   </div>
   <div class="card mt-4">
@@ -6133,7 +6352,8 @@ function(){
   </div>
   <div class="card mt-4">
     <div class="section-title"><span class="dot"></span>Снаряжение</div>
-    <div class="card-grid cols-4">${equipment}</div>
+    <div class="text-xs text-muted mb-2">Расширенный набор для улицы, дома и зала — от турника и брусьев до TRX и резинок.</div>
+    <div class="equip-grid">${equipment}</div>
   </div>`;
 }
 ,
@@ -7074,7 +7294,7 @@ function(){
   `;
   return `<div class="panel-header">
     <div><div class="panel-title">${SVG('user',24)} <span class="accent">Профиль</span></div>
-    <div class="panel-subtitle">Личный профиль · статистика · достижения · v6.2.0</div></div>
+    <div class="panel-subtitle">Личный профиль · статистика · достижения · v6.5.0</div></div>
     <div class="no-print" style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-primary ripple-btn" onclick="enterProfileEdit()">${SVG('edit',14)} Редактировать</button>
       <button class="btn ripple-btn" onclick="printProfileResume()">${SVG('download',14)} Печать резюме</button>
@@ -7091,6 +7311,38 @@ function(){
           ${contactHtml ? `<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px">${contactHtml}</div>` : ''}
           ${socialIconsHtml ? `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">${socialIconsHtml}</div>` : ''}
         </div>
+      </div>
+    </div>
+    <div class="home-widgets no-print">
+      <div class="card" id="w-water">
+        <div class="section-title" style="display:flex;justify-content:space-between;align-items:center"><span style="display:flex;align-items:center;gap:6px"><span class="dot"></span>💧 Кружки воды</span>
+          <span style="display:flex;gap:4px">
+            <button class="btn btn-sm" style="width:26px;height:26px;padding:0" onclick="addWater(-1)" title="Убрать кружку">−</button>
+            <button class="btn btn-sm btn-primary" style="width:26px;height:26px;padding:0" onclick="addWater(1)" title="Добавить кружку">+</button>
+            <button class="btn btn-sm btn-ghost" onclick="changeWaterGoal()" title="Изменить цель">🎯</button>
+          </span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span class="mono" style="font-size:22px;font-weight:700;color:var(--accent)" id="w-water-count">0 / 8</span>
+          <span class="text-xs text-muted">кружек сегодня</span>
+        </div>
+        <div class="water-cups" id="w-water-cups"></div>
+        <div class="text-xs text-muted mt-2" id="w-water-week"></div>
+      </div>
+      <div class="card" id="w-weather">
+        <div class="section-title"><span class="dot"></span>🌤 Погода</div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <input class="form-input" id="wx-city-input" placeholder="Город: Днепр, Киев, Москва…" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')wxSearch()">
+          <button class="btn btn-sm btn-primary" onclick="wxSearch()">${SVG('search',13)}</button>
+        </div>
+        <div id="w-weather-body"><div class="text-xs text-muted">Введите город…</div></div>
+      </div>
+      <div class="card" id="w-news">
+        <div class="section-title" style="display:flex;justify-content:space-between;align-items:center"><span style="display:flex;align-items:center;gap:6px"><span class="dot"></span>📰 Новости <span class="text-xs text-muted" id="w-news-src-label"></span></span>
+          <button class="btn btn-sm btn-ghost" onclick="loadNews()" title="Обновить">${SVG('refresh',12)}</button>
+        </div>
+        <div class="icon-cats" id="w-news-chips" style="margin-bottom:6px"></div>
+        <div id="w-news-list" style="max-height:300px;overflow-y:auto"><div class="text-xs text-muted">Загрузка…</div></div>
       </div>
     </div>
     <div class="card">
@@ -7160,6 +7412,8 @@ function(){
       <button class="btn btn-sm" id="diary-forecolor-btn" onclick="diaryShowColorPicker('foreColor', this)" title="Цвет текста" style="position:relative;min-width:36px"><span style="display:inline-block;width:16px;height:16px;border-radius:3px;background:var(--text);vertical-align:middle;border:1px solid var(--border)"></span> A</button>
       <button class="btn btn-sm" id="diary-hilitecolor-btn" onclick="diaryShowColorPicker('hiliteColor', this)" title="Цвет фона" style="position:relative;min-width:36px"><span style="display:inline-block;width:16px;height:16px;border-radius:3px;background:transparent;vertical-align:middle;border:1px solid var(--border);background-image:linear-gradient(45deg,rgba(255,255,255,0.1) 25%,transparent 25%,transparent 50%,rgba(255,255,255,0.1) 50%,rgba(255,255,255,0.1) 75%,transparent 75%);background-size:8px 8px"></span> H</button>
       <button class="btn btn-sm" onclick="diaryEmbedMenu()" title="Вставить блок">${SVG('plus',14)} Блок</button>
+      <button class="btn btn-sm" id="diary-voice-btn" onclick="diaryVoiceToggle(this)" title="Голосовой ввод: надиктовать текст (ru-RU)">${SVG('mic',14)} Голос</button>
+      <span class="text-xs text-muted mono" id="diary-voice-status" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
     </div>
     <div class="diary-content" id="diary-content" contenteditable="true" oninput="debounceDiarySave()" data-placeholder="Начните писать здесь...">${current.content_html||''}</div>
     <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
@@ -7232,6 +7486,47 @@ function(){
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${catChips}</div>
     <input type="text" class="form-input" placeholder="🔍 Поиск по названию или заметке…" value="${escapeHtml(window.__mapSearch)}" oninput="window.__mapSearch=this.value;refreshTab('map')" style="margin-bottom:10px;max-width:320px">
     <div style="max-height:340px;overflow-y:auto">${marksList}</div>
+  </div>`;
+}
+,
+  'ai':
+function(){
+  // v6.5.0: БЕСПЛАТНЫЙ AI-АССИСТЕНТ — чат через /api/ai/chat (серверный прокси
+  // на открытый Pollinations Text API, без ключей). История — dt.ai_chat,
+  // синхронизируется облаком вместе со всеми данными трекера.
+  const history = Store.get('ai_chat', []);
+  if (!Array.isArray(window.__aiModel)) window.__aiModel = 'openai';
+  const model = window.__aiModel;
+  if (typeof window.__aiCtx !== 'boolean') window.__aiCtx = true;
+  const ctxOn = window.__aiCtx;
+  const msgsHtml = history.length ? history.map(m => {
+    const cls = m.role === 'user' ? 'user' : 'assistant';
+    const who = m.role === 'user' ? 'Вы' : 'AI';
+    return `<div class="ai-msg ${cls}"><div class="text-xs text-muted" style="margin-bottom:3px;${m.role==='user'?'color:rgba(15,17,26,0.7)':''}">${who}</div>${escapeHtml(m.content)}</div>`;
+  }).join('') : `<div class="ai-msg assistant">Привет! Я бесплатный AI-ассистент трекера 🤖<br><br>Могу помочь с планом тренировок, питанием, мотивацией, разбором целей и бюджета. Просто напиши вопрос.<br><br>Совет: включи «Контекст трекера» — я буду видеть твои привычки, цели и финансы.</div>`;
+  return `<div class="panel-header">
+    <div><div class="panel-title">${SVG('sparkles',24)} <span class="accent">AI Ассистент</span></div>
+    <div class="panel-subtitle">Бесплатно · без API-ключей · ответы через сервер трекера (Pollinations)</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <select class="form-select" style="width:auto" onchange="window.__aiModel=this.value" title="Модель">
+        <option value="openai" ${model==='openai'?'selected':''}>OpenAI GPT (быстрая)</option>
+        <option value="mistral" ${model==='mistral'?'selected':''}>Mistral</option>
+        <option value="llama" ${model==='llama'?'selected':''}>Llama</option>
+      </select>
+      <button class="btn btn-danger btn-sm" onclick="aiClearChat()" title="Очистить переписку">${SVG('trash',12)} Очистить</button>
+    </div>
+  </div>
+  <div class="card">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px">
+      <input type="checkbox" ${ctxOn?'checked':''} onchange="window.__aiCtx=this.checked;toast(this.checked?'Контекст трекера включён: AI видит ваши данные':'Контекст трекера выключен','info')">
+      <span class="text-sm">🧠 Контекст трекера — передавать AI данные о привычках, целях, тренировках и финансах</span>
+    </label>
+    <div class="ai-chat" id="ai-chat-box" style="max-height:48vh">${msgsHtml}</div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <textarea class="form-textarea" id="ai-input" rows="2" placeholder="Спросите что-нибудь… (Enter — отправить)" style="flex:1;min-width:0;resize:vertical" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiSend();}"></textarea>
+      <button class="btn btn-primary" id="ai-send-btn" onclick="aiSend()" style="min-width:110px">${SVG('send',14)} Отправить</button>
+    </div>
+    <div class="text-xs text-muted mt-2">Переписка сохраняется в трекере и синхронизируется между устройствами. Сервис бесплатный — возможны ограничения скорости.</div>
   </div>`;
 }
 ,
@@ -7443,7 +7738,7 @@ function(){
       <div class="backups-list">${backupsHtml}</div>
     </div>
     <div class="card">
-      <div class="section-title"><span class="dot"></span>☁️ Облачная синхронизация — единая база (v6.3.0)</div>
+      <div class="section-title"><span class="dot"></span>☁️ Облачная синхронизация — единая база (v6.5.0)</div>
       <p class="text-sm text-muted mb-3">Одна база данных для компьютера, телефона и приложения (APK/PWA). Данные автоматически выгружаются на ваш сервер и забираются с него на всех устройствах с одним и тем же <b>кодом синхронизации</b>. Придумайте свой код (например DT-MY-2026) и введите тот же на других устройствах — базы объединятся.</p>
       <div class="mb-3" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <label class="text-sm" style="display:flex;align-items:center;gap:6px;cursor:pointer">
@@ -8678,11 +8973,11 @@ function openCustomWorkoutTemplateForm(id){
   const sel = new Set(t?.exercises || []);
   const body = `<div class="form-row"><label class="form-label">Название шаблона</label><input class="form-input" id="f-name" value="${escapeHtml(t?.name||'')}" placeholder="Например: Утренняя зарядка"></div>
     <div class="form-grid">
-      <div class="form-row"><label class="form-label">Тип</label><select class="form-select" id="f-type">
-        <option value="custom" ${t?.type==='custom'||!t?'selected':''}>Custom (своё)</option>
-        <option value="street" ${t?.type==='street'?'selected':''}>Street (улица)</option>
-        <option value="home" ${t?.type==='home'?'selected':''}>Home (дом)</option>
-        <option value="gym" ${t?.type==='gym'?'selected':''}>Gym (зал)</option>
+      <div class="form-row"><label class="form-label">Категория тренировки</label><select class="form-select" id="f-type">
+        <option value="street" ${t?.type==='street'?'selected':''}>🌳 Улица</option>
+        <option value="home" ${t?.type==='home'?'selected':''}>🏠 Дом</option>
+        <option value="gym" ${t?.type==='gym'?'selected':''}>💪 Зал</option>
+        <option value="custom" ${t?.type==='custom'||!t?'selected':''}>⚙️ Универсальная</option>
       </select></div>
       <div class="form-row"><label class="form-label">Отдых между подходами (сек)</label><input type="number" class="form-input" id="f-rest" value="${t?.restTime||60}" min="0" step="5"></div>
     </div>
@@ -12156,6 +12451,62 @@ function diaryExec(cmd){
   document.execCommand(cmd, false, null);
   rteSave();
 }
+// ============================================================
+// v6.5.0: ГОЛОСОВОЙ ВВОД ДНЕВНИКА — Web Speech API (ru-RU).
+// Chrome/Edge/Safari (в т.ч. Android APK/PWA). Распознанные
+// фразы вставляются в позицию курсора как обычный текст.
+// ============================================================
+function diaryVoiceToggle(btn){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR){
+    toast('Голосовой ввод не поддерживается этим браузером. Работает в Chrome, Edge и Safari (включая Android APK).', 'error');
+    return;
+  }
+  if (window.__diaryRecog){ try { window.__diaryRecog.stop(); } catch(e){} return; }
+  const rec = new SR();
+  window.__diaryRecog = rec;
+  rec.lang = 'ru-RU';
+  rec.continuous = true;
+  rec.interimResults = true;
+  if (typeof window.__voiceNeedsSpace !== 'boolean') window.__voiceNeedsSpace = false;
+  rec.onstart = () => {
+    if (btn) btn.classList.add('diary-voice-active');
+    toast('🎤 Слушаю… Говорите — текст вставится в курсор. Повторный клик по «Голос» — стоп.', 'info');
+  };
+  rec.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++){
+      const res = e.results[i];
+      const t = res[0].transcript;
+      if (res.isFinal){
+        const content = rteEl();
+        if (content){
+          content.focus();
+          const ins = (window.__voiceNeedsSpace ? ' ' : '') + t.trim();
+          try { document.execCommand('insertText', false, ins); }
+          catch(err){ content.textContent += ins; }
+          window.__voiceNeedsSpace = true;
+          rteSave();
+        }
+      } else interim += t;
+    }
+    const st = document.getElementById('diary-voice-status');
+    if (st) st.textContent = '🎤 ' + (interim || '…');
+  };
+  rec.onerror = (e) => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('Нет доступа к микрофону. Разрешите его в настройках браузера.', 'error');
+    else if (e.error === 'no-speech') { /* тишина — просто ждём дальше */ }
+    else if (e.error !== 'aborted') toast('Распознавание: ' + e.error, 'warning');
+  };
+  rec.onend = () => {
+    window.__diaryRecog = null;
+    if (btn) btn.classList.remove('diary-voice-active');
+    const st = document.getElementById('diary-voice-status');
+    if (st) st.textContent = '';
+    rteSave();
+  };
+  try { rec.start(); } catch(e){ window.__diaryRecog = null; toast('Не удалось запустить микрофон: ' + e.message, 'error'); }
+}
 function diaryLink(){
   const el = rteEl(); if (!el) return;
   const url = prompt('URL ссылки:');
@@ -12195,8 +12546,12 @@ function diaryShowColorPicker(cmd, btn){
       g.colors.map(c => `<div style="width:24px;height:24px;background:${c};border-radius:4px;cursor:pointer;border:1px solid var(--border)" onclick="diaryApplyColor('${cmd}','${c}')" title="${c.toUpperCase()}"></div>`).join('') +
       `</div></div>`;
   });
-  // Add reset to default
-  html += `<div style="margin-top:8px;display:flex;gap:6px"><button class="btn btn-sm w-full" onclick="diaryApplyColor('${cmd}','inherit')">Сбросить</button></div>`;
+  // Add custom color + reset
+  html += `<div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+    <input type="color" value="#FFD600" onchange="diaryApplyColor('${cmd}', this.value)" title="Свой цвет" style="width:36px;height:28px;border:none;background:transparent;cursor:pointer;padding:0">
+    <span class="text-xs text-muted">Свой цвет — не зависит от темы</span>
+  </div>`;
+  html += `<div style="margin-top:4px;display:flex;gap:6px"><button class="btn btn-sm w-full" onclick="diaryApplyColor('${cmd}','${cmd==='hiliteColor'?'transparent':'inherit'}')">Сбросить</button></div>`;
   dd.innerHTML = html;
   btn.style.position = 'relative';
   btn.appendChild(dd);
@@ -12219,7 +12574,12 @@ function diaryApplyColor(cmd, hex){
   const content = rteEl();
   if (!content) return;
   content.focus();
-  try { document.execCommand(cmd, false, hex); } catch(e){}
+  // v6.5.0: styleWithCSS=true → цвет пишется как inline style у span,
+  // поэтому цвет текста и подсветка НЕ зависят от смены темы.
+  // Для «Сбросить» подсветка становится прозрачной.
+  const val = (cmd === 'hiliteColor' && (hex === 'inherit' || hex === 'transparent')) ? 'transparent' : hex;
+  try { document.execCommand('styleWithCSS', false, true); } catch(e){}
+  try { document.execCommand(cmd, false, val); } catch(e){}
   // Update preview swatch on button
   const btnId = cmd === 'foreColor' ? 'diary-forecolor-btn' : 'diary-hilitecolor-btn';
   const btn = document.getElementById(btnId);
@@ -12310,10 +12670,16 @@ function diaryEmbedInsert(kind){
   } else if (kind === 'telegram'){
     const url = prompt('Telegram post URL (https://t.me/channel/123):'); if (!url) return;
     const m = url.match(/t\.me\/([^\/]+)\/(\d+)/);
-    if (m) insertHTML(`<iframe src="https://t.me/${m[1]}/${m[2]}?embed=1" style="width:100%;border:0;border-radius:8px;margin:8px 0;min-height:200px" onerror="this.outerHTML='<div style=&quot;padding:10px;color:var(--danger);background:var(--bg-input);border-radius:8px;margin:8px 0&quot;>Не удалось загрузить Telegram пост</div>'"></iframe>`);
+    if (m){
+      // v6.5.0: пост без фона — прозрачный iframe без обёртки и рамок;
+      // dark=1 в тёмной теме, чтобы пост сливался с темой, а не «карточкой».
+      const dark = (document.documentElement.getAttribute('data-theme') || 'dark') === 'dark' ? '&dark=1' : '';
+      insertHTML(`<iframe src="https://t.me/${m[1]}/${m[2]}?embed=1&mode=tme${dark}" style="width:100%;border:0;background:transparent;margin:8px 0;min-height:200px" loading="lazy" onerror="this.outerHTML='<div style=&quot;padding:10px;color:var(--danger);background:var(--bg-input);border-radius:8px;margin:8px 0&quot;>Не удалось загрузить Telegram пост</div>'"></iframe>`);
+    }
   } else if (kind === 'twitter'){
     const url = prompt('Twitter/X post URL:'); if (!url) return;
-    insertHTML(`<blockquote class="twitter-tweet" style="border-left:3px solid var(--accent);padding:8px 16px;margin:8px 0"><a href="${escapeHtml(url)}">${escapeHtml(url)}</a></blockquote>`);
+    // v6.5.0: только пост без фона — без рамки и подложки
+    insertHTML(`<blockquote class="twitter-tweet" style="margin:8px 0"><a href="${escapeHtml(url)}">${escapeHtml(url)}</a></blockquote>`);
   }
 }
 // YouTube ID extraction (supports watch?v=, youtu.be/, /shorts/, /embed/)
@@ -13212,11 +13578,9 @@ function renderFinanceCategoryManager(catTotals, budgetKeys){
     const progress = (isExp && limit > 0)
       ? `<div style="height:4px;background:var(--bg-input);border-radius:2px;overflow:hidden;margin-top:4px"><div style="height:100%;width:${Math.min(100,pct)}%;background:${barColor};transition:width 0.5s"></div></div>`
       : '';
-    const isProtected = (name === 'Прочее');
-    const tagSub = isProtected ? ' · служебная' : (obj.builtin ? ' · стандартная' : ' · своя');
-    const editBtn = isProtected
-      ? '<span class="text-xs text-muted" style="width:24px;text-align:center" title="Служебная категория: принимает транзакции удалённых категорий">🔒</span>'
-      : `<button class="btn-icon" onclick="editFinanceCategory('${type}','${obj.id}')" title="Изменить категорию">${SVG('edit',11)}</button>
+    const isProtected = false; // v6.5.0: «Прочее» и стандартные категории — удаляемые
+    const tagSub = obj.builtin ? ' · стандартная' : ' · своя';
+    const editBtn = `<button class="btn-icon" onclick="editFinanceCategory('${type}','${obj.id}')" title="Изменить категорию">${SVG('edit',11)}</button>
          <button class="btn-icon" onclick="deleteFinanceCategory('${type}','${obj.id}')" title="Удалить категорию" style="color:var(--danger)">${SVG('trash',11)}</button>`;
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
       <span style="width:24px;height:24px;border-radius:6px;background:${meta.color}22;color:${meta.color};display:flex;align-items:center;justify-content:center;flex-shrink:0">${SVG(meta.icon||'tag-icon',14)}</span>
@@ -13244,7 +13608,7 @@ function renderFinanceCategoryManager(catTotals, budgetKeys){
       <span style="display:flex;align-items:center;gap:6px"><span class="dot"></span>Управление бюджетами и категориями</span>
       <button class="btn btn-primary" style="padding:10px 18px;font-size:13px" onclick="openFinanceCategoryForm('expense')">${SVG('plus',14)} Добавить категорию</button>
     </div>
-    <div class="text-xs text-muted mb-3" style="margin-top:8px">Устанавливайте месячные лимиты (₴) для каждой категории расходов. Цветовая индикация: зелёный (0-80%), оранжевый (80-100%), красный (100%+). Карандаш — изменить любую категорию (стандартные тоже), корзина — удалить (кроме служебной «Прочее»).</div>
+    <div class="text-xs text-muted mb-3" style="margin-top:8px">Устанавливайте месячные лимиты (₴) для каждой категории расходов. Цветовая индикация: зелёный (0-80%), оранжевый (80-100%), красный (100%+). Карандаш — изменить категорию, корзина — удалить (v6.5.0: стандартные категории и «Прочее» тоже удаляются; транзакции удалённой категории переносятся в первую оставшуюся).</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
       <button class="btn btn-sm btn-primary" onclick="openFinanceCategoryForm('expense')">${SVG('plus',12)} Категория расхода</button>
       <button class="btn btn-sm btn-2" onclick="openFinanceCategoryForm('income')">${SVG('plus',12)} Категория дохода</button>
@@ -13340,22 +13704,29 @@ function openFinanceCategoryForm(type, id){
 }
 function editFinanceCategory(type, id){ openFinanceCategoryForm(type, id); }
 function deleteFinanceCategory(type, id){
-  // v5.7 Req #5: standard categories are deletable too (except «Прочее»).
+  // v6.5.0: удаление ЛЮБОЙ категории, включая стандартные и «Прочее».
+  // Транзакции удалённой категории переносятся в первую оставшуюся
+  // категорию того же типа. Последнюю категорию удалить нельзя.
   const key = type === 'expense' ? 'finance_categories_expense' : 'finance_categories_income';
   const arr = getFinanceCatList(type);
   const removed = arr.find(x => x.id === id);
   if (!removed) return;
-  if (removed.name === 'Прочее'){
-    toast('Категорию «Прочее» удалить нельзя — она принимает транзакции удалённых категорий', 'warning');
+  if (arr.length <= 1){
+    toast('Нельзя удалить последнюю категорию — сначала добавьте другую', 'warning');
     return;
   }
+  const target = arr.find(x => x.id !== id);
+  const targetName = target ? target.name : 'Прочее';
   const kind = removed.builtin ? 'стандартную категорию' : 'категорию';
-  if (!confirm('Удалить ' + kind + ' "' + removed.name + '"?\nСуществующие транзакции будут перенесены в «Прочее».')) return;
+  if (!confirm('Удалить ' + kind + ' "' + removed.name + '"?\nСуществующие транзакции будут перенесены в "' + targetName + '".')) return;
   Store.set(key, arr.filter(x => x.id !== id));
   const txns = Store.get('finance_transactions', []);
   let reTagged = 0;
-  txns.forEach(t => { if (t.category === removed.name){ t.category = 'Прочее'; reTagged++; } });
+  txns.forEach(t => { if (t.category === removed.name){ t.category = targetName; reTagged++; } });
   if (reTagged > 0) Store.set('finance_transactions', txns);
+  /* удаляем и её бюджет, если был */
+  const budgets = Store.get('finance_budgets', {});
+  if (budgets[removed.name]){ delete budgets[removed.name]; Store.set('finance_budgets', budgets); }
   toast('Категория удалена' + (reTagged ? ' · транзакций перенесено: ' + reTagged : ''), 'error');
   refreshTab('finance');
 }
@@ -15644,6 +16015,320 @@ window.cloudCheck = function(){
 };
 window.cloudRestoreBackup = function(key){ restoreBackup(key); };
 window.cloudDeleteBackup = function(key){ deleteBackup(key); };
+})();
+</script>
+<script id="v65-widgets">
+// ============================================================
+// v6.5.0 — ВИДЖЕТЫ ГЛАВНОЙ: вода / погода (Open-Meteo) / новости (/api/news)
+// ============================================================
+(function(){
+'use strict';
+
+/* ---------- 💧 ВОДА ---------- */
+window.waterCupSVG = function(filled){
+  return '<svg viewBox="0 0 24 32">'
+    + '<path d="M4.5 2.5h15L17.7 28.4a2 2 0 0 1-2 1.8H8.3a2 2 0 0 1-2-1.8Z" fill="' + (filled ? 'rgba(41,182,246,0.30)' : 'rgba(127,141,170,0.06)') + '" stroke="' + (filled ? '#4FC3F7' : '#7F8DAA') + '" stroke-width="1.5" stroke-linejoin="round"/>'
+    + (filled ? '<path d="M6.6 12.5h10.8l-.8 11.6a1.2 1.2 0 0 1-1.2 1.1H8.6a1.2 1.2 0 0 1-1.2-1.1Z" fill="#29B6F6" opacity="0.8"/>' : '')
+    + '</svg>';
+};
+function waterLog(){ return Store.get('water_log', {}); }
+function waterToday(){ return waterLog()[localISODate()] || 0; }
+function waterGoal(){ return Store.get('water_goal', 8); }
+window.renderWater = function(){
+  const cupsEl = document.getElementById('w-water-cups');
+  if (!cupsEl) return;
+  const cnt = waterToday(), goal = waterGoal();
+  const shown = Math.max(goal, cnt);
+  let h = '';
+  for (let i = 0; i < shown; i++) h += '<button class="water-cup" title="' + (i + 1) + '" onclick="setWaterCount(' + (i + 1) + ')">' + waterCupSVG(i < cnt) + '</button>';
+  cupsEl.innerHTML = h;
+  const cntEl = document.getElementById('w-water-count');
+  if (cntEl) cntEl.textContent = cnt + ' / ' + goal;
+  const log = waterLog(); let sum = 0;
+  for (let i = 0; i < 7; i++) sum += log[localISODate(new Date(Date.now() - i * 86400000))] || 0;
+  const wk = document.getElementById('w-water-week');
+  if (wk) wk.textContent = 'За 7 дней: ' + sum + ' · в среднем ' + (sum / 7).toFixed(1) + '/день · цель ' + goal + '/день';
+};
+window.addWater = function(n){
+  const k = localISODate(); const log = waterLog();
+  log[k] = Math.max(0, (log[k] || 0) + n);
+  if (!log[k]) delete log[k];
+  Store.set('water_log', log);
+  renderWater();
+};
+window.setWaterCount = function(n){
+  const k = localISODate(); const log = waterLog();
+  log[k] = (log[k] === n) ? n - 1 : n;
+  if (!log[k]) delete log[k];
+  Store.set('water_log', log);
+  renderWater();
+};
+window.changeWaterGoal = function(){
+  const v = prompt('Цель: сколько кружек воды в день?', waterGoal());
+  if (v === null) return;
+  const n = Math.max(1, Math.min(20, parseInt(v, 10) || 8));
+  Store.set('water_goal', n);
+  renderWater();
+  toast('Цель по воде: ' + n + ' кружек/день', 'success');
+};
+
+/* ---------- 🌤 ПОГОДА (Open-Meteo — бесплатно, без ключа) ---------- */
+const WX_CODES = {0:'Ясно',1:'Преимущественно ясно',2:'Переменная облачность',3:'Пасмурно',45:'Туман',48:'Изморозь',51:'Слабая морось',53:'Морось',55:'Сильная морось',56:'Ледяная морось',57:'Ледяная морось',61:'Небольшой дождь',63:'Дождь',65:'Сильный дождь',66:'Ледяной дождь',67:'Ледяной дождь',71:'Небольшой снег',73:'Снег',75:'Сильный снег',77:'Снежные зёрна',80:'Ливень',81:'Ливень',82:'Сильный ливень',85:'Снегопад',86:'Снегопад',95:'Гроза',96:'Гроза с градом',99:'Гроза с градом'};
+function wxEmoji(code){
+  if (code <= 1) return '☀️';
+  if (code === 2) return '⛅';
+  if (code === 3) return '☁️';
+  if (code === 45 || code === 48) return '🌫️';
+  if (code >= 51 && code <= 67) return '🌧️';
+  if (code >= 71 && code <= 86) return '🌨️';
+  if (code >= 95) return '⛈️';
+  return '🌡️';
+}
+function wxCity(){ return Store.get('weather_city', null); }
+window.wxSearch = async function(){
+  const inp = document.getElementById('wx-city-input');
+  const q = inp ? inp.value.trim() : '';
+  if (!q) return;
+  const box = document.getElementById('w-weather-body');
+  if (!box) return;
+  box.innerHTML = '<div class="text-xs text-muted">Поиск «' + escapeHtml(q) + '»…</div>';
+  try {
+    const g = await fetch('https://geocoding-api.open-meteo.com/v1/search?count=1&language=ru&format=json&name=' + encodeURIComponent(q)).then(r => r.json());
+    const c = g.results && g.results[0];
+    if (!c){ box.innerHTML = '<div class="text-xs" style="color:var(--danger)">Город не найден. Попробуйте иначе: Днепр, Kyiv, Warszawa…</div>'; return; }
+    Store.set('weather_city', { name: c.name, admin: c.admin1 || '', country: c.country || '', lat: c.latitude, lon: c.longitude });
+    inp.value = '';
+    loadWeather();
+  } catch(e){
+    box.innerHTML = '<div class="text-xs" style="color:var(--danger)">Ошибка сети при поиске города</div>';
+  }
+};
+function wxRender(cur, days, city){
+  const box = document.getElementById('w-weather-body');
+  if (!box) return;
+  let daysHtml = '';
+  for (const d of days){
+    daysHtml += '<div class="wx-day"><span>' + d.label + ' · ' + wxEmoji(d.code) + ' ' + escapeHtml(WX_CODES[d.code] || '') + '</span>'
+      + '<span class="mono">' + Math.round(d.min) + '° … ' + Math.round(d.max) + '°</span></div>';
+  }
+  box.innerHTML =
+    '<div class="wx-now"><div style="font-size:44px;line-height:1">' + wxEmoji(cur.weather_code) + '</div>'
+    + '<div><div class="wx-temp">' + Math.round(cur.temperature_2m) + '°C</div>'
+    + '<div class="text-xs text-muted">' + escapeHtml(WX_CODES[cur.weather_code] || '') + '</div></div></div>'
+    + '<div class="text-xs text-muted mt-2" style="display:flex;gap:12px;flex-wrap:wrap">'
+    + '<span>💧 ' + cur.relative_humidity_2m + '%</span><span>💨 ' + Math.round(cur.wind_speed_10m) + ' км/ч</span>'
+    + '<span>📍 ' + escapeHtml(city.name) + (city.country ? ', ' + escapeHtml(city.country) : '') + '</span></div>'
+    + '<div style="margin-top:8px">' + daysHtml + '</div>';
+}
+window.loadWeather = async function(){
+  const city = wxCity();
+  const box = document.getElementById('w-weather-body');
+  if (!box) return;
+  if (!city){ box.innerHTML = '<div class="text-xs text-muted">Введите город — например: Днепр, Киев, Москва…</div>'; return; }
+  box.innerHTML = '<div class="text-xs text-muted">Загрузка погоды…</div>';
+  const wd = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+  /* Источник №1: Open-Meteo (точный, без ключа) */
+  try {
+    const u = 'https://api.open-meteo.com/v1/forecast?latitude=' + city.lat + '&longitude=' + city.lon
+      + '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m'
+      + '&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=4&timezone=auto';
+    const w = await fetch(u).then(r => r.json());
+    const cur = w.current, d = w.daily;
+    const days = [];
+    for (let i = 1; i < 4; i++){
+      const dt = new Date(d.time[i] + 'T12:00:00');
+      days.push({ label: wd[dt.getDay()], code: d.weather_code[i], min: d.temperature_2m_min[i], max: d.temperature_2m_max[i] });
+    }
+    wxRender(cur, days, city);
+    return;
+  } catch(e){ /* падаем на резервный источник */ }
+  /* Источник №2 (резерв): wttr.in — бесплатно, без ключа */
+  try {
+    const w = await fetch('https://wttr.in/' + encodeURIComponent(city.name) + '?format=j1').then(r => r.json());
+    const cc = w.current_condition && w.current_condition[0];
+    if (!cc) throw new Error('empty');
+    const cur = {
+      temperature_2m: parseFloat(cc.temp_C),
+      relative_humidity_2m: parseInt(cc.humidity, 10) || 0,
+      weather_code: parseInt(cc.weatherCode, 10) || 0,
+      wind_speed_10m: parseFloat(cc.windspeedKmph) || 0
+    };
+    const days = (w.weather || []).slice(1, 4).map(dw => {
+      const dt = new Date(dw.date + 'T12:00:00');
+      const code = parseInt((dw.hourly && dw.hourly[4] && dw.hourly[4].weatherCode) || dw.weatherCode || 0, 10);
+      return { label: wd[dt.getDay()], code: code, min: parseFloat(dw.mintempC), max: parseFloat(dw.maxtempC) };
+    });
+    wxRender(cur, days, city);
+  } catch(e2){
+    box.innerHTML = '<div class="text-xs" style="color:var(--danger)">Сервисы погоды недоступны (лимит бесплатного API). Попробуйте позже.</div>';
+  }
+};
+
+/* ---------- 📰 НОВОСТИ (RSS через сервер /api/news) ---------- */
+const NEWS_SOURCES = [
+  ['lenta','Lenta.ru'],['ria','РИА Новости'],['habr','Хабр'],
+  ['rbc','РБК'],['gazeta','Gazeta.ru'],['kommersant','Коммерсантъ']
+];
+function dtApiBase(){
+  if (location.protocol === 'http:' || location.protocol === 'https:') return '';
+  return String(Store.get('render_server_url','') || 'https://myhabbittracker-t76t.onrender.com').replace(/\/+$/,'');
+}
+function renderNewsChips(){
+  const box = document.getElementById('w-news-chips');
+  if (!box) return;
+  const cur = window.__newsSrc || 'lenta';
+  box.innerHTML = NEWS_SOURCES.map(s =>
+    '<button class="news-src-chip' + (s[0] === cur ? ' active' : '') + '" onclick="switchNews(\'' + s[0] + '\')">' + s[1] + '</button>'
+  ).join('');
+}
+function renderNewsList(items, name){
+  const list = document.getElementById('w-news-list');
+  const lbl = document.getElementById('w-news-src-label');
+  if (lbl) lbl.textContent = '· ' + (name || '');
+  if (!list) return;
+  if (!items || !items.length){ list.innerHTML = '<div class="text-xs text-muted">Лента пуста</div>'; return; }
+  list.innerHTML = items.slice(0, 10).map(n => {
+    const d = new Date(n.date);
+    const hm = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    const url = String(n.link || '').replace(/'/g, '%27');
+    return '<div class="news-item" onclick="window.open(\'' + url + '\',\'_blank\')">'
+      + '<div style="min-width:0"><div class="news-title">' + escapeHtml(n.title) + '</div>'
+      + '<div class="news-meta"><span class="mono">' + hm + '</span></div></div></div>';
+  }).join('');
+}
+window.switchNews = function(src){ window.__newsSrc = src; loadNews(); };
+window.loadNews = async function(){
+  renderNewsChips();
+  const src = window.__newsSrc || 'lenta';
+  const key = 'news_cache_' + src;
+  const cached = Store.get(key, null);
+  const hasCache = !!(cached && cached.items && cached.items.length);
+  if (hasCache && Date.now() - cached.ts < 10 * 60 * 1000){
+    renderNewsList(cached.items, cached.name);
+  } else {
+    const list = document.getElementById('w-news-list');
+    if (list) list.innerHTML = '<div class="text-xs text-muted">Загрузка новостей…</div>';
+  }
+  const apiKey = Store.get('render_server_key', '');
+  const hdrs = {};
+  if (apiKey) hdrs['X-API-Key'] = apiKey;
+  try {
+    const r = await fetch(dtApiBase() + '/api/news?src=' + src, { headers: hdrs }).then(x => x.json());
+    if (r.ok && r.items && r.items.length){
+      Store.set(key, { ts: Date.now(), items: r.items, name: r.name });
+      renderNewsList(r.items, r.name);
+    } else if (!hasCache){
+      const list = document.getElementById('w-news-list');
+      if (list) list.innerHTML = '<div class="text-xs" style="color:var(--danger)">' + escapeHtml(r.error || 'Источник недоступен') + '</div>';
+    }
+  } catch(e){
+    if (!hasCache){
+      const list = document.getElementById('w-news-list');
+      if (list) list.innerHTML = '<div class="text-xs" style="color:var(--danger)">Сервер новостей недоступен</div>';
+    }
+  }
+};
+
+/* ---------- 🤖 БЕСПЛАТНЫЙ AI-АССИСТЕНТ (через /api/ai/chat) ---------- */
+const AI_SYSTEM = 'Ты — встроенный AI-ассистент трекера привычек DISCIPLINE.TRACKER. Отвечай всегда на русском языке, дружелюбно, кратко и по делу. Помогаешь с планированием тренировок, привычками, питанием, водой, мотивацией, целями и бюджетом. Если видишь данные трекера — ссылайся на них и давай конкретные советы.';
+function aiContextSummary(){
+  try {
+    const habits = Store.get('habits', []);
+    const goals = Store.get('goals', []);
+    const hist = Store.get('workout_history', []);
+    const txns = Store.get('finance_transactions', []);
+    const today = localISODate();
+    let s = '';
+    if (habits.length){
+      s += 'Привычки (' + habits.length + '):\n';
+      habits.slice(0, 10).forEach(h => {
+        const marked = (h.markedDays || []).filter(d => d <= today).length;
+        s += '- ' + (h.title || h.name || 'привычка') + ': отмечено ' + marked + ' дн.\n';
+      });
+    }
+    if (goals.length){
+      s += 'Цели (' + goals.length + '):\n';
+      goals.slice(0, 8).forEach(g => { s += '- ' + (g.title || 'цель') + (g.deadline ? ' (срок ' + g.deadline + ')' : '') + (g.completed ? ' — выполнена' : '') + '\n'; });
+    }
+    if (hist.length) s += 'Тренировок за всё время: ' + hist.length + ', последняя: ' + (hist[0].date || '?') + '\n';
+    if (txns.length){
+      const month = today.slice(0, 7);
+      let inc = 0, exp = 0;
+      txns.forEach(t => {
+        const d = String(t.date || '');
+        if (d.slice(0, 7) !== month) return;
+        const v = Math.abs(parseFloat(t.amount) || 0);
+        if (t.type === 'income') inc += v; else exp += v;
+      });
+      s += 'Финансы за месяц: доход ' + inc.toFixed(0) + ' ₴, расход ' + exp.toFixed(0) + ' ₴\n';
+    }
+    const w = waterLog();
+    if (w[today] != null) s += 'Кружки воды сегодня: ' + w[today] + '\n';
+    return s || 'Данных пока нет.';
+  } catch(e){ return 'Данных пока нет.'; }
+}
+window.aiClearChat = function(){
+  if (!confirm('Очистить переписку с AI?')) return;
+  Store.set('ai_chat', []);
+  refreshTab('ai');
+};
+window.aiSend = async function(){
+  const inp = document.getElementById('ai-input');
+  const text = inp ? inp.value.trim() : '';
+  if (!text) return;
+  const box = document.getElementById('ai-chat-box');
+  const history = Store.get('ai_chat', []);
+  history.push({ role: 'user', content: text });
+  Store.set('ai_chat', history);
+  if (inp) inp.value = '';
+  const esc = escapeHtml(text);
+  if (box){
+    box.insertAdjacentHTML('beforeend', '<div class="ai-msg user"><div class="text-xs" style="margin-bottom:3px;color:rgba(15,17,26,0.7)">Вы</div>' + esc + '</div>');
+    box.insertAdjacentHTML('beforeend', '<div class="ai-msg assistant typing" id="ai-typing">Думаю…</div>');
+    box.scrollTop = box.scrollHeight;
+  }
+  const btn = document.getElementById('ai-send-btn');
+  if (btn) btn.disabled = true;
+  const messages = [{ role: 'system', content: AI_SYSTEM + (window.__aiCtx ? '\n\nАктуальные данные пользователя из трекера:\n' + aiContextSummary() : '') }];
+  history.slice(-10).forEach(m => messages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: String(m.content).slice(0, 4000) }));
+  const apiKey = Store.get('render_server_key', '');
+  const hdrs = { 'Content-Type': 'application/json' };
+  if (apiKey) hdrs['X-API-Key'] = apiKey;
+  try {
+    const r = await fetch(dtApiBase() + '/api/ai/chat', {
+      method: 'POST', headers: hdrs,
+      body: JSON.stringify({ messages: messages, model: window.__aiModel })
+    }).then(x => x.json());
+    const typing = document.getElementById('ai-typing');
+    if (typing) typing.remove();
+    if (r.ok && r.text){
+      history.push({ role: 'assistant', content: r.text });
+      Store.set('ai_chat', history);
+      if (box){
+        box.insertAdjacentHTML('beforeend', '<div class="ai-msg assistant"><div class="text-xs text-muted" style="margin-bottom:3px">AI</div>' + escapeHtml(r.text) + '</div>');
+        box.scrollTop = box.scrollHeight;
+      }
+    } else {
+      if (box) box.insertAdjacentHTML('beforeend', '<div class="ai-msg assistant" style="color:var(--danger)">' + escapeHtml(r.error || 'Ошибка запроса') + '</div>');
+    }
+  } catch(e){
+    const typing = document.getElementById('ai-typing');
+    if (typing) typing.remove();
+    if (box) box.insertAdjacentHTML('beforeend', '<div class="ai-msg assistant" style="color:var(--danger)">Сервер недоступен. Проверьте соединение и повторите.</div>');
+  }
+  if (btn) btn.disabled = false;
+};
+window.__postRender_ai = function(){
+  const box = document.getElementById('ai-chat-box');
+  if (box) box.scrollTop = box.scrollHeight;
+};
+
+/* ---------- ПОСТ-РЕНДЕР ГЛАВНОЙ ---------- */
+window.__postRender_profile = function(){
+  renderWater();
+  loadWeather();
+  loadNews();
+};
 })();
 </script>
 </body>
